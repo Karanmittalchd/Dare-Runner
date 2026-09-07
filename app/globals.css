@@ -126,3 +126,10 @@ h1 { font-style:italic; letter-spacing:-0.07em; background:linear-gradient(180de
 .location-panel p { margin:0.3rem 0 0; color:#bcc6cf; font-size:0.875rem; }
 .location-badge { color:#ffc59a; font-size:0.875rem; white-space:nowrap; }
 @media(max-width:640px){.location-panel {align-items:start; flex-direction:column;}}
+
+/* Volcano arena: charcoal stone and reflected lava light. */
+body { background:radial-gradient(ellipse at 48% 0%,#3b1b13 0%,#160f0d 55%,#090807 100%); }
+.screen-topline { background:#231712; border-color:#664333; color:#d8bba8; }
+.screen-topline i { background:#ffae63; box-shadow:0 0 9px #ff672a; }
+.screen-topline b { color:#ffb379; }
+.screen-frame { background:#1b0c09; border-color:#72503b; box-shadow:0 0 0 5px #1c120e,0 0 70px #ff5a1918,0 30px 80px #0009; }

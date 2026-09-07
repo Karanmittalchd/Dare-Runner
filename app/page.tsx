@@ -376,8 +376,8 @@ export default function Home() {
     ctx.imageSmoothingEnabled = true;
     ctx.setTransform(4, 0, 0, 4, 0, 0);
     const cavern = new Image();
-    cavern.src = '/cinder-cavern.webp';
-    const stronghold = new Image(); stronghold.src = '/obsidian-hd.png';
+    cavern.src = '/volcano-arena.png';
+    const basalt = new Image(); basalt.src = '/volcano-basalt.png';
     const sprites = loadSprites('/runner-atlas.png');
     const volcanoSprites = loadAnimationSprites('/volcano-enemies.png');
     const heroSprites = loadAnimationSprites('/hero-hd.png', { trim: false, rowSplit: 425 / 887, chromaKey: false });
@@ -393,24 +393,24 @@ export default function Home() {
     let animationFrame = 0;
 
     const drawBackground = (camera: number) => {
-      ctx.fillStyle = '#06131c';
+      ctx.fillStyle = '#1b0c09';
       ctx.fillRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
       if (cavern.complete && cavern.naturalWidth) {
         ctx.save();
-        if (levelRef.current === 1) ctx.filter = 'hue-rotate(325deg) saturate(1.15)';
-        const background = levelRef.current === 2 && stronghold.complete && stronghold.naturalWidth ? stronghold : cavern;
-        ctx.drawImage(background, -camera * 0.025, -12, VIEW_WIDTH + 44, VIEW_HEIGHT + 24);
+        if (levelRef.current === 1) ctx.filter = 'saturate(0.85) brightness(0.85)';
+        if (levelRef.current === 2) ctx.filter = 'saturate(1.2) brightness(0.8)';
+        ctx.drawImage(cavern, 0, 0, cavern.naturalWidth, cavern.naturalHeight * 0.76, -camera * 0.025, -12, VIEW_WIDTH + 44, VIEW_HEIGHT + 24);
         ctx.restore();
       }
       const haze = ctx.createLinearGradient(0, 0, 0, VIEW_HEIGHT);
-      haze.addColorStop(0, '#030b1840'); haze.addColorStop(0.72, '#06122010'); haze.addColorStop(1, '#ff501b40');
+      haze.addColorStop(0, '#16050230'); haze.addColorStop(0.72, '#22090020'); haze.addColorStop(1, '#ff501b40');
       ctx.fillStyle = haze; ctx.fillRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
       atmosphere(ctx, timeRef.current, levelRef.current);
       glow(160, 190, 130, '#f55e2038');
       for (let i = 0; i < 35; i++) {
         const x = ((i * 53.7 - camera * 0.3 + Math.sin(timeRef.current / 90 + i) * 6) % 340 + 340) % 340;
         const y = 192 - ((i * 19 + timeRef.current * (0.08 + i % 3 * 0.03)) % 192);
-        ctx.fillStyle = i % 4 ? '#ffb16390' : '#7bffe1a0';
+        ctx.fillStyle = i % 4 ? '#ffb16390' : '#d6532780';
         ctx.beginPath(); ctx.arc(x, y, i % 3 ? 0.28 : 0.6, 0, Math.PI * 2); ctx.fill();
       }
       const lava = ctx.createLinearGradient(0, 183, 0, 192);
@@ -431,26 +431,29 @@ export default function Home() {
     const drawPlatform = (platform: Platform, camera: number) => {
       const x = platform.x - camera;
       if (x > VIEW_WIDTH || x + platform.w < 0) return;
-      const rock = ctx.createLinearGradient(0, platform.y, 0, platform.y + platform.h);
-      rock.addColorStop(0, '#425465'); rock.addColorStop(0.25, '#25313d'); rock.addColorStop(1, '#101722');
-      ctx.fillStyle = rock; ctx.fillRect(x, platform.y, platform.w, platform.h);
-      ctx.fillStyle = '#96aaa6'; ctx.fillRect(x, platform.y, platform.w, 0.65);
-      ctx.fillStyle = '#d1e0bc'; ctx.fillRect(x, platform.y, platform.w, 0.25);
-      for (let j = 0; j < platform.w; j += 9) {
-        ctx.strokeStyle = '#0b111a'; ctx.lineWidth = 0.5;
-        ctx.beginPath(); ctx.moveTo(x + j, platform.y + 2); ctx.lineTo(x + j + 3, platform.y + 6); ctx.lineTo(x + j + 1, platform.y + platform.h); ctx.stroke();
-        ctx.fillStyle = '#82948450'; ctx.fillRect(x + j + 2, platform.y + 2, 4, 0.5);
+      ctx.save();
+      // The level's collision surface stays flat; the rock face breaks into jagged edges below it.
+      ctx.beginPath(); ctx.moveTo(x, platform.y); ctx.lineTo(x + platform.w, platform.y);
+      ctx.lineTo(x + platform.w, platform.y + platform.h - 1);
+      for (let j = platform.w; j >= 0; j -= 4) {
+        const chip = Math.sin((platform.x + j) * 2.7) * 1.1;
+        ctx.lineTo(x + j, platform.y + platform.h + chip);
       }
-      for (let j = 2; j < platform.w - 2; j += 2) {
-        const depth = 3 + ((j * 13 + platform.x) % Math.max(4, platform.h - 4));
-        ctx.fillStyle = j % 3 ? '#859ba329' : '#02070b60';
-        ctx.fillRect(x + j, platform.y + depth, 1.5, 0.6);
+      ctx.lineTo(x, platform.y); ctx.closePath(); ctx.clip();
+      ctx.fillStyle = '#35251f'; ctx.fillRect(x, platform.y, platform.w, platform.h + 2);
+      if (basalt.complete && basalt.naturalWidth) {
+        const tileWidth = 72;
+        for (let j = 0; j < platform.w; j += tileWidth) {
+          const height = Math.max(14, platform.h + 2);
+          ctx.drawImage(basalt, 0, 0, basalt.naturalWidth, Math.min(basalt.naturalHeight, basalt.naturalWidth * height / tileWidth), x + j, platform.y, tileWidth, height);
+        }
       }
-      ctx.fillStyle = '#070e18'; ctx.fillRect(x, platform.y + platform.h - 2, platform.w, 2);
-      ctx.fillStyle = '#101b25'; ctx.fillRect(x, platform.y + 1, platform.w, 1);
-      ctx.fillStyle = '#79d8cd';
-      for (let j = 8; j < platform.w - 5; j += 30) ctx.fillRect(x + j, platform.y + 1.15, 4, 0.4);
-      ctx.fillStyle = '#ff824640'; ctx.fillRect(x, platform.y + platform.h - 1, platform.w, 1);
+      // Lava lights the undersides, leaving the cool walkable edge clearly readable.
+      const reflected = ctx.createLinearGradient(0, platform.y, 0, platform.y + platform.h);
+      reflected.addColorStop(0, '#130c0910'); reflected.addColorStop(0.65, '#16070210'); reflected.addColorStop(1, '#ff481b55');
+      ctx.fillStyle = reflected; ctx.fillRect(x, platform.y, platform.w, platform.h + 2);
+      ctx.restore();
+
     };
 
     const drawLegacyHero = (x: number, y: number, facing: number, frame: number) => {

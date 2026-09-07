@@ -61,13 +61,13 @@ export function atmosphere(ctx: CanvasRenderingContext2D, frame: number, level: 
   for (let i = 0; i < 3; i++) {
     const x = 50 + i * 106 + Math.sin(frame / 240 + i) * 12;
     const ray = ctx.createLinearGradient(x, 0, x + 38, 185);
-    ray.addColorStop(0, level === 2 ? '#b2a2ff16' : '#92e7ee18'); ray.addColorStop(1, '#72bdcb00');
+    ray.addColorStop(0, level === 2 ? '#ff752b18' : '#ffb36a16'); ray.addColorStop(1, '#ff632000');
     ctx.fillStyle = ray; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + 9, 0); ctx.lineTo(x + 65, 185); ctx.lineTo(x + 17, 185); ctx.closePath(); ctx.fill();
   }
   for (let i = 0; i < 4; i++) {
     const x = (frame * 0.045 + i * 104) % 420 - 70;
     const fog = ctx.createRadialGradient(x, 162 - i * 8, 0, x, 162 - i * 8, 66);
-    fog.addColorStop(0, '#78a5bf0b'); fog.addColorStop(1, '#78a5bf00'); ctx.fillStyle = fog; ctx.fillRect(x - 66, 80, 132, 112);
+    fog.addColorStop(0, '#b54b280e'); fog.addColorStop(1, '#b54b2800'); ctx.fillStyle = fog; ctx.fillRect(x - 66, 80, 132, 112);
   }
   ctx.restore();
 }
