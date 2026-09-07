@@ -22,14 +22,14 @@ type Enemy = {
   direction: number;
   alive: boolean;
   flying?: boolean;
-  kind?: 'armored' | 'sentry' | 'hunter' | 'dragon';
+  kind?: 'armored' | 'sentry' | 'hunter' | 'dragon' | 'yeti' | 'ice-dragon' | 'frost-king';
   moving?: boolean;
   animation?: number;
   hp?: number;
   cooldown?: number;
 };
 type DragonFire = { x: number; y: number; vx: number; vy: number; life: number };
-type Bullet = { x: number; y: number; direction: number; up?: boolean };
+type Bullet = { x: number; y: number; direction: number; up?: boolean; flame?: boolean };
 type ModelContextDocument = Document & {
   modelContext?: {
     registerTool: (
@@ -79,8 +79,8 @@ const firstEnemies: Enemy[] = [
   { x: 930, y: 160, min: 870, max: 980, direction: 1, alive: true },
 ];
 
-type Powerup = { x: number; y: number; kind: 'shield' | 'rapid' | 'life'; taken: boolean };
-type Level = { powerups?: Powerup[]; name: string; width: number; gateX: number; platforms: Platform[]; spikes: { x: number; y: number; w: number }[]; cores: Core[]; enemies: Enemy[] };
+type Powerup = { x: number; y: number; kind: 'shield' | 'rapid' | 'life' | 'flame'; taken: boolean };
+type Level = { icy?: boolean; icicles?: number[]; barriers?: { x: number; y: number; w: number; h: number; hp: number }[]; powerups?: Powerup[]; name: string; width: number; gateX: number; platforms: Platform[]; spikes: { x: number; y: number; w: number }[]; cores: Core[]; enemies: Enemy[] };
 const levels: Level[] = [
   { name: 'Cinder Caverns', width: 1220, gateX: 1165, platforms: firstPlatforms, spikes: firstSpikes, cores: firstCores, enemies: firstEnemies },
   {
@@ -127,19 +127,79 @@ const levels: Level[] = [
     ],
     powerups: [{ x: 82, y: 161, kind: 'shield', taken: false }, { x: 282, y: 137, kind: 'rapid', taken: false }, { x: 795, y: 161, kind: 'life', taken: false }, { x: 1164, y: 105, kind: 'rapid', taken: false }, { x: 1505, y: 161, kind: 'shield', taken: false }],
   },
+  {
+    name: 'Frostbite Pass', icy: true, width: 1430, gateX: 1375,
+    platforms: [
+      { x: 0, y: 176, w: 270, h: 16 }, { x: 300, y: 159, w: 150, h: 16 },
+      { x: 476, y: 137, w: 155, h: 16 }, { x: 655, y: 164, w: 155, h: 16 },
+      { x: 832, y: 176, w: 155, h: 16 }, { x: 1010, y: 148, w: 170, h: 16 },
+      { x: 1205, y: 176, w: 225, h: 16 },
+    ],
+    spikes: [{ x: 185, y: 169, w: 24 }, { x: 714, y: 157, w: 24 }, { x: 1270, y: 169, w: 28 }],
+    cores: [{ x: 365, y: 131, taken: false }, { x: 558, y: 109, taken: false }, { x: 1100, y: 120, taken: false }],
+    enemies: [
+      { x: 345, y: 146, min: 318, max: 418, direction: -1, alive: true, kind: 'yeti', hp: 3 },
+      { x: 605, y:  70, min: 525, max: 615, direction: -1, alive: true, flying: true, kind: 'ice-dragon', hp: 4, cooldown: 140 },
+      { x: 917, y: 163, min: 857, max: 956, direction: -1, alive: true, kind: 'yeti', hp: 3 },
+      { x: 1314, y: 90, min: 1250, max: 1350, direction: -1, alive: true, flying: true, kind: 'ice-dragon', hp: 4, cooldown: 140 },
+    ],
+    powerups: [{ x: 80, y: 161, kind: 'flame', taken: false }, { x: 669, y: 149, kind: 'shield', taken: false }, { x: 1030, y: 133, kind: 'flame', taken: false }],
+    icicles: [390, 765, 1150], barriers: [{ x: 228, y: 142, w: 14, h: 34, hp: 6 }],
+  },
+  {
+    name: 'Crystal Caverns', icy: true, width: 1650, gateX: 1595,
+    platforms: [
+      { x: 0, y: 176, w: 245, h: 16 }, { x: 272, y: 150, w: 135, h: 16 },
+      { x: 430, y: 122, w: 150, h: 16 }, { x: 605, y: 153, w: 145, h: 16 },
+      { x: 777, y: 176, w: 170, h: 16 }, { x: 970, y: 149, w: 145, h: 16 },
+      { x: 1140, y: 121, w: 150, h: 16 }, { x: 1313, y: 149, w: 125, h: 16 },
+      { x: 1460, y: 176, w: 190, h: 16 },
+    ],
+    spikes: [{ x: 174, y: 169, w: 24 }, { x: 660, y: 146, w: 26 }, { x: 827, y: 169, w: 26 }, { x: 1510, y: 169, w: 24 }],
+    cores: [{ x: 506, y: 94, taken: false }, { x: 1050, y: 121, taken: false }, { x: 1208, y: 93, taken: false }],
+    enemies: [
+      { x: 343, y: 137, min: 290, max: 375, direction: -1, alive: true, kind: 'yeti', hp: 4 },
+      { x: 546, y: 64, min: 460, max: 560, direction: -1, alive: true, flying: true, kind: 'ice-dragon', hp: 5, cooldown: 140 },
+      { x: 913, y: 163, min: 868, max: 923, direction: -1, alive: true, kind: 'yeti', hp: 4 },
+      { x: 1220, y: 60, min: 1165, max: 1270, direction: -1, alive: true, flying: true, kind: 'ice-dragon', hp: 5, cooldown: 140 },
+      { x: 1402, y: 136, min: 1345, max: 1410, direction: -1, alive: true, kind: 'yeti', hp: 4 },
+    ],
+    powerups: [{ x: 75, y: 161, kind: 'flame', taken: false }, { x: 610, y: 138, kind: 'life', taken: false }, { x: 983, y: 134, kind: 'flame', taken: false }, { x: 1468, y: 161, kind: 'shield', taken: false }],
+    icicles: [354, 704, 1070, 1370], barriers: [{ x: 383, y: 116, w: 14, h: 34, hp: 6 }, { x: 1082, y: 115, w: 14, h: 34, hp: 6 }],
+  },
+  {
+    name: 'Ice King’s Keep', icy: true, width: 1800, gateX: 1750,
+    platforms: [
+      { x: 0, y: 176, w: 255, h: 16 }, { x: 280, y: 151, w: 150, h: 16 },
+      { x: 454, y: 126, w: 150, h: 16 }, { x: 630, y: 153, w: 160, h: 16 },
+      { x: 815, y: 176, w: 160, h: 16 }, { x: 1000, y: 146, w: 155, h: 16 },
+      { x: 1178, y: 122, w: 145, h: 16 }, { x: 1345, y: 176, w: 455, h: 16 },
+    ],
+    spikes: [{ x: 183, y: 169, w: 26 }, { x: 689, y: 146, w: 26 }, { x: 860, y: 169, w: 25 }],
+    cores: [{ x: 524, y: 98, taken: false }, { x: 1080, y: 118, taken: false }, { x: 1250, y: 94, taken: false }],
+    enemies: [
+      { x: 362, y: 138, min: 310, max: 402, direction: -1, alive: true, kind: 'yeti', hp: 4 },
+      { x: 568, y: 64, min: 485, max: 583, direction: -1, alive: true, flying: true, kind: 'ice-dragon', hp: 5, cooldown: 140 },
+      { x: 925, y: 163, min: 899, max: 948, direction: -1, alive: true, kind: 'yeti', hp: 4 },
+      { x: 1248, y: 70, min: 1200, max: 1300, direction: -1, alive: true, flying: true, kind: 'ice-dragon', hp: 5, cooldown: 140 },
+      { x: 1580, y: 82, min: 1440, max: 1690, direction: -1, alive: true, flying: true, kind: 'frost-king', hp: 18, cooldown: 150 },
+    ],
+    powerups: [{ x: 75, y: 161, kind: 'flame', taken: false }, { x: 639, y: 138, kind: 'shield', taken: false }, { x: 1008, y: 131, kind: 'flame', taken: false }, { x: 1370, y: 161, kind: 'life', taken: false }, { x: 1410, y: 161, kind: 'flame', taken: false }, { x: 1700, y: 161, kind: 'shield', taken: false }],
+    icicles: [389, 745, 1110, 1520, 1650], barriers: [{ x: 1130, y: 112, w: 14, h: 34, hp: 6 }],
+  },
 ];
 const initialCores = (level = 0): Core[] => levels[level].cores.map(core => ({ ...core }));
-const initialEnemies = (level = 0): Enemy[] => [
+const initialEnemies = (level = 0): Enemy[] => levels[level].icy ? levels[level].enemies.map(enemy => ({ ...enemy })) : [
   ...levels[level].enemies.map(enemy => ({ ...enemy, ...(enemy.flying ? { kind: 'dragon' as const, hp: level + 3, cooldown: 135 } : {}) })),
   { x: 385, y: 98, min: 345, max: 465, direction: -1, flying: true, kind: 'dragon', hp: level + 3, cooldown: 150, alive: true },
 ];
 function enemyBounds(enemy: Enemy, frame: number) {
   const y = enemy.y + (enemy.flying ? Math.sin(frame / 12) * 3 : 0);
-  const w = enemy.kind === 'dragon' ? 28 : enemy.kind === 'sentry' ? 12 : enemy.flying ? 16 : 20;
-  const h = enemy.kind === 'sentry' ? 12 : 22;
+  const w = enemy.kind === 'frost-king' ? 44 : enemy.flying ? 28 : enemy.kind === 'sentry' ? 12 : enemy.flying ? 16 : 20;
+  const h = enemy.kind === 'frost-king' ? 34 : enemy.kind === 'sentry' ? 12 : 22;
   return { x: enemy.x + 6 - w / 2, y: y + 13 - h, w, h };
 }
-const locations = [{ name: 'Volcano', description: 'Fire caverns, lava climbs and the Obsidian Stronghold.', levels: [0, 1, 2] }];
+const locations = [{ name: 'Volcano', description: 'Fire caverns, lava climbs and the Obsidian Stronghold.', levels: [0, 1, 2] }, { name: 'Frozen Citadel', description: 'Glacial passes, crystal caves, and the Ice King’s domain.', levels: [3, 4, 5] }];
 
 const overlap = (
   ax: number,
@@ -184,8 +244,10 @@ export default function Home() {
   const dragonFireRef = useRef<DragonFire[]>([]);
   const powerupsRef = useRef<Powerup[]>([]);
   const enemyShotsRef = useRef<Bullet[]>([]);
-  const powersRef = useRef({ shield: false, rapid: 0, grace: 0 });
-  const [powerHud, setPowerHud] = useState({ shield: false, rapid: 0 });
+  const barriersRef = useRef<{ x: number; y: number; w: number; h: number; hp: number }[]>([]);
+  const iciclesRef = useRef<{ x: number; y: number; timer: number; falling: boolean; warning: boolean }[]>([]);
+  const powersRef = useRef({ shield: false, rapid: 0, flame: 0, grace: 0 });
+  const [powerHud, setPowerHud] = useState({ shield: false, rapid: 0, flame: 0 });
   const levelRef = useRef(0);
   const [levelIndex, setLevelIndex] = useState(0);
   const respawnFramesRef = useRef(0);
@@ -211,12 +273,14 @@ export default function Home() {
     powerupsRef.current = (levels[index].powerups ?? []).map(item => ({ ...item }));
     enemyShotsRef.current = [];
     dragonFireRef.current = [];
-    powersRef.current = { shield: false, rapid: 0, grace: 0 };
-    setPowerHud({ shield: false, rapid: 0 });
+    powersRef.current = { shield: false, rapid: 0, flame: 0, grace: 0 };
+    setPowerHud({ shield: false, rapid: 0, flame: 0 });
+    barriersRef.current = (levels[index].barriers ?? []).map(b => ({ ...b }));
+    iciclesRef.current = (levels[index].icicles ?? []).map(x => ({ x, y: 24, timer: 0, falling: false, warning: false }));
     levelRef.current = index;
     setLevelIndex(index);
     respawnFramesRef.current = 0;
-    setNotice(index === 0 ? 'Jump over fire and lava. Collect three cores to open the exit.' : index === 1 ? 'Climb the upper ledges for three cores. Watch for flying creatures.' : 'Armored guards take 3 hits. Duck sentry bolts. Collect shield and rapid-fire power-ups.');
+    setNotice(levels[index].icy ? 'Ice is slippery: hold Down/S to brake. Shoot ice barriers; flame shots melt them faster. Watch for falling icicles.' : index === 0 ? 'Jump over fire and lava. Collect three cores to open the exit.' : index === 1 ? 'Climb the upper ledges for three cores. Watch for flying creatures.' : 'Armored guards take 3 hits. Duck sentry bolts. Collect shield and rapid-fire power-ups.');
     jumpHeldRef.current = false;
     inputSourcesRef.current.clear();
     pressedRef.current.clear();
@@ -246,15 +310,16 @@ export default function Home() {
       setPowerHud(current => ({ ...current, shield: false }));
       sound('hit'); setNotice('Shield absorbed the hit. Keep moving!'); return;
     }
-    powersRef.current = { shield: false, rapid: 0, grace: 0 };
-    setPowerHud({ shield: false, rapid: 0 });
+    powersRef.current = { shield: false, rapid: 0, flame: 0, grace: 0 };
+    setPowerHud({ shield: false, rapid: 0, flame: 0 });
     enemyShotsRef.current = [];
     dragonFireRef.current = [];
     powerupsRef.current = (levels[levelRef.current].powerups ?? []).map(item => ({ ...item }));
+    iciclesRef.current = (levels[levelRef.current].icicles ?? []).map(x => ({ x, y: 24, timer: 0, falling: false, warning: false }));
     respawnFramesRef.current = 45;
     cameraRef.current = 0;
     shotCooldownRef.current = 0;
-    sound(burn ? 'burn' : 'hurt');
+    sound(burn && !levels[levelRef.current].icy ? 'burn' : 'hurt');
     const nextLives = livesRef.current - 1;
     livesRef.current = nextLives;
     setNotice(nextLives > 0 ? `${cause} — ${nextLives} ${nextLives === 1 ? 'life' : 'lives'} left. Back at the entrance.` : `${cause} — no lives left. New run started.`);
@@ -265,6 +330,7 @@ export default function Home() {
     playerRef.current = { x: 24, y: 158, vx: 0, vy: 0, facing: 1 };
     bulletsRef.current = [];
     if (nextLives <= 0) {
+      barriersRef.current = (levels[levelRef.current].barriers ?? []).map(b => ({ ...b }));
       livesRef.current = 3;
       scoreRef.current = Math.max(0, scoreRef.current - 250);
       coresRef.current = initialCores(levelRef.current);
@@ -378,6 +444,9 @@ export default function Home() {
     const cavern = new Image();
     cavern.src = '/volcano-arena.png';
     const basalt = new Image(); basalt.src = '/volcano-basalt.png';
+    const frozen = new Image(); frozen.src = '/frozen-citadel.png';
+    const ice = new Image(); ice.src = '/icy-platform.png';
+    const frozenSprites = loadAnimationSprites('/frozen-enemies.png');
     const sprites = loadSprites('/runner-atlas.png');
     const volcanoSprites = loadAnimationSprites('/volcano-enemies.png');
     const heroUpSprites = loadAnimationSprites('/hero-up.png', { trim: false, rowSplit: 410 / 887, chromaKey: false, lightBackdrop: true });
@@ -394,6 +463,23 @@ export default function Home() {
     let animationFrame = 0;
 
     const drawBackground = (camera: number) => {
+      if (levels[levelRef.current].icy) {
+        ctx.fillStyle = '#07152a'; ctx.fillRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
+        if (frozen.complete && frozen.naturalWidth) {
+          ctx.save();
+          if (levelRef.current === 4) ctx.filter = 'hue-rotate(15deg) brightness(0.8)';
+          if (levelRef.current === 5) ctx.filter = 'saturate(1.25) brightness(0.85)';
+          ctx.drawImage(frozen, -camera * 0.025, -5, VIEW_WIDTH + 46, VIEW_HEIGHT + 12); ctx.restore();
+        }
+        const fog = ctx.createLinearGradient(0, 130, 0, 192); fog.addColorStop(0, '#8dcaff00'); fog.addColorStop(1, '#abcfff42');
+        ctx.fillStyle = fog; ctx.fillRect(0, 130, 320, 62);
+        for (let i = 0; i < 55; i++) {
+          const x = ((i * 47 - camera * 0.2 - timeRef.current * 0.18) % 340 + 340) % 340;
+          const y = (i * 29 + timeRef.current * (0.2 + i % 3 * 0.08)) % 192;
+          ctx.fillStyle = i % 3 ? '#d2ebff99' : '#ffffffcc'; ctx.fillRect(x, y, i % 3 ? 0.6 : 1, 0.8);
+        }
+        return;
+      }
       ctx.fillStyle = '#1b0c09';
       ctx.fillRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
       if (cavern.complete && cavern.naturalWidth) {
@@ -441,17 +527,19 @@ export default function Home() {
         ctx.lineTo(x + j, platform.y + platform.h + chip);
       }
       ctx.lineTo(x, platform.y); ctx.closePath(); ctx.clip();
-      ctx.fillStyle = '#35251f'; ctx.fillRect(x, platform.y, platform.w, platform.h + 2);
-      if (basalt.complete && basalt.naturalWidth) {
+      const icy = levels[levelRef.current].icy;
+      const texture = icy ? ice : basalt;
+      ctx.fillStyle = icy ? '#254a70' : '#35251f'; ctx.fillRect(x, platform.y, platform.w, platform.h + 2);
+      if (texture.complete && texture.naturalWidth) {
         const tileWidth = 72;
         for (let j = 0; j < platform.w; j += tileWidth) {
           const height = Math.max(14, platform.h + 2);
-          ctx.drawImage(basalt, 0, 0, basalt.naturalWidth, Math.min(basalt.naturalHeight, basalt.naturalWidth * height / tileWidth), x + j, platform.y, tileWidth, height);
+          ctx.drawImage(texture, 0, 0, texture.naturalWidth, Math.min(texture.naturalHeight, texture.naturalWidth * height / tileWidth), x + j, platform.y, tileWidth, height);
         }
       }
       // Lava lights the undersides, leaving the cool walkable edge clearly readable.
       const reflected = ctx.createLinearGradient(0, platform.y, 0, platform.y + platform.h);
-      reflected.addColorStop(0, '#130c0910'); reflected.addColorStop(0.65, '#16070210'); reflected.addColorStop(1, '#ff481b55');
+      reflected.addColorStop(0, '#130c0910'); reflected.addColorStop(0.65, '#16070210'); reflected.addColorStop(1, icy ? '#60bbff30' : '#ff481b55');
       ctx.fillStyle = reflected; ctx.fillRect(x, platform.y, platform.w, platform.h + 2);
       ctx.restore();
 
@@ -539,10 +627,11 @@ export default function Home() {
       const y = Math.floor(enemy.y + (enemy.flying ? Math.sin(frame / 12) * 3 : 0));
       if (x < -40 || x > VIEW_WIDTH + 40) return;
       const bounds = enemyBounds(enemy, frame);
-      const dragon = enemy.kind === 'dragon';
+      const dragon = !!enemy.flying;
+      const frozenEnemy = enemy.kind === 'yeti' || enemy.kind === 'ice-dragon' || enemy.kind === 'frost-king';
       if (dragon || (!enemy.flying && enemy.kind !== 'sentry')) {
         const pose = dragon ? Math.floor(frame / 9) % 4 : enemy.moving ? Math.floor((enemy.animation ?? 0) / 6) % 4 : 0;
-        if (drawSprite(ctx, volcanoSprites, (dragon ? 4 : 0) + pose, x + 6, y + 13, dragon ? 30 : 24, enemy.direction, -1)) {
+        if (drawSprite(ctx, frozenEnemy ? frozenSprites : volcanoSprites, (dragon ? 4 : 0) + pose, x + 6, y + 13, enemy.kind === 'frost-king' ? 48 : dragon ? 30 : frozenEnemy ? 27 : 24, enemy.direction, -1)) {
           for (let i = 0; i < (enemy.hp ?? 1); i++) { ctx.fillStyle = dragon ? '#ffb15c' : '#ff8773'; ctx.fillRect(x - 3 + i * 3, bounds.y - 4, 2, 1); }
           if (dragon && (enemy.cooldown ?? 135) < 30) { glow(x + 6 + enemy.direction * 12, y + 3, 14, '#ff641999'); pixelText(ctx, '!', x + 6, bounds.y - 6, '#ffdf83', 'center'); }
           return;
@@ -613,6 +702,13 @@ export default function Home() {
       spikes.forEach((spike) => {
         const x = spike.x - camera;
         if (x > VIEW_WIDTH || x + spike.w < 0) return;
+        if (level.icy) {
+          for (let j = 0; j < spike.w; j += 5) {
+            ctx.fillStyle = '#87d5ff'; ctx.beginPath(); ctx.moveTo(x + j, spike.y + 8); ctx.lineTo(x + j + 2.5, spike.y); ctx.lineTo(x + j + 5, spike.y + 8); ctx.fill();
+            ctx.strokeStyle = '#effaff'; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(x + j + 2.5, spike.y); ctx.lineTo(x + j + 2.5, spike.y + 7); ctx.stroke();
+          }
+          return;
+        }
         glow(x + spike.w / 2, spike.y + 5, 18, '#ff762955');
         ctx.save();
         ctx.fillStyle = '#f44817';
@@ -637,6 +733,24 @@ export default function Home() {
         }
         ctx.restore();
       });
+      barriersRef.current.forEach(barrier => {
+        if (barrier.hp <= 0) return;
+        const x = barrier.x - camera;
+        ctx.fillStyle = '#72c9f3aa'; ctx.fillRect(x, barrier.y, barrier.w, barrier.h);
+        ctx.strokeStyle = '#dcfaff'; ctx.lineWidth = 0.7; ctx.strokeRect(x, barrier.y, barrier.w, barrier.h);
+        ctx.beginPath(); ctx.moveTo(x + 3, barrier.y); ctx.lineTo(x + 9, barrier.y + 11); ctx.lineTo(x + 5, barrier.y + 22); ctx.lineTo(x + 11, barrier.y + barrier.h); ctx.stroke();
+        for (let i = 0; i < barrier.hp; i++) { ctx.fillStyle = '#c5f4ff'; ctx.fillRect(x + i * 2, barrier.y - 3, 1, 1); }
+      });
+      iciclesRef.current.forEach(shard => {
+        const x = shard.x - camera;
+        if (shard.warning) { ctx.fillStyle = '#c3eaff22'; ctx.fillRect(x - 2, shard.y, 7, 176 - shard.y); pixelText(ctx, '!', x + 2, shard.y - 4, '#fff3b0', 'center'); }
+        ctx.fillStyle = shard.warning ? '#fff3b0' : '#b6e9ff'; ctx.beginPath(); ctx.moveTo(x, shard.y); ctx.lineTo(x + 6, shard.y); ctx.lineTo(x + 3, shard.y + 12); ctx.closePath(); ctx.fill();
+      });
+      const boss = enemiesRef.current.find(enemy => enemy.kind === 'frost-king' && enemy.alive);
+      if (boss && Math.abs(player.x - boss.x) < 300) {
+        ctx.fillStyle = '#071326dd'; ctx.fillRect(85, 6, 150, 17); pixelText(ctx, 'FROST KING', 160, 14, '#c8edff', 'center');
+        ctx.fillStyle = '#28415b'; ctx.fillRect(90, 18, 140, 3); ctx.fillStyle = '#a2e5ff'; ctx.fillRect(90, 18, 140 * (boss.hp ?? 0) / 18, 3);
+      }
       coresRef.current.forEach((core, index) => {
         if (core.taken) return;
         const x = core.x - camera;
@@ -649,26 +763,26 @@ export default function Home() {
       });
       enemiesRef.current.forEach((enemy) => { if (enemy.alive) drawEnemy(enemy, camera, timeRef.current); });
       bulletsRef.current.forEach((bullet) => {
-        glow(bullet.x - camera, bullet.y, 8, '#ffbb5a90');
+        glow(bullet.x - camera, bullet.y, bullet.flame ? 12 : 8, bullet.flame ? '#ff641ccc' : '#ffbb5a90');
         ctx.save(); ctx.strokeStyle = '#ffad56aa'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(bullet.x - camera + (bullet.up ? 1 : 2), bullet.y + (bullet.up ? 2 : 1)); ctx.lineTo(bullet.x - camera + (bullet.up ? 1 : 2 - bullet.direction * 9), bullet.y + (bullet.up ? 11 : 1)); ctx.stroke(); ctx.restore();
-        ctx.fillStyle = '#ffecc0';
+        ctx.fillStyle = bullet.flame ? '#ff943d' : '#ffecc0';
         ctx.fillRect(bullet.x - camera, bullet.y, bullet.up ? 2 : 4, bullet.up ? 4 : 2);
       });
       powerupsRef.current.forEach(item => {
         if (item.taken) return;
         const x = item.x - camera;
-        const color = item.kind === 'shield' ? '#72beff' : item.kind === 'rapid' ? '#e6a1ff' : '#ff91a4';
+        const color = item.kind === 'flame' ? '#ff9b48' : item.kind === 'shield' ? '#72beff' : item.kind === 'rapid' ? '#e6a1ff' : '#ff91a4';
         glow(x + 5, item.y + 5, 13, color + '55');
         ctx.fillStyle = '#122033'; ctx.fillRect(x, item.y, 10, 10);
         ctx.strokeStyle = color; ctx.lineWidth = 0.7; ctx.strokeRect(x, item.y, 10, 10);
-        pixelText(ctx, item.kind === 'shield' ? 'S' : item.kind === 'rapid' ? 'R' : '+', x + 5, item.y + 8, color, 'center');
+        pixelText(ctx, item.kind === 'flame' ? 'F' : item.kind === 'shield' ? 'S' : item.kind === 'rapid' ? 'R' : '+', x + 5, item.y + 8, color, 'center');
       });
       dragonFireRef.current.forEach(fire => {
         const x = fire.x - camera;
-        glow(x + 3, fire.y + 3, 11, '#ff741966');
-        ctx.fillStyle = '#ff511c'; ctx.beginPath(); ctx.ellipse(x + 3, fire.y + 3, 4, 3, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#fff2a2'; ctx.beginPath(); ctx.arc(x + 3, fire.y + 3, 1.6, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = '#ff9b4b'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + 3, fire.y + 3); ctx.lineTo(x + 3 - fire.vx * 4, fire.y + 3 - fire.vy * 4); ctx.stroke();
+        glow(x + 3, fire.y + 3, 11, level.icy ? '#62c9ff88' : '#ff741966');
+        ctx.fillStyle = level.icy ? '#8be2ff' : '#ff511c'; ctx.beginPath(); ctx.ellipse(x + 3, fire.y + 3, 4, 3, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = level.icy ? '#ffffff' : '#fff2a2'; ctx.beginPath(); ctx.arc(x + 3, fire.y + 3, 1.6, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = level.icy ? '#9ae9ff' : '#ff9b4b'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + 3, fire.y + 3); ctx.lineTo(x + 3 - fire.vx * 4, fire.y + 3 - fire.vy * 4); ctx.stroke();
       });
       enemyShotsRef.current.forEach(shot => { glow(shot.x - camera, shot.y, 6, '#ff4b4466'); ctx.fillStyle = '#ff6960'; ctx.fillRect(shot.x - camera, shot.y, 4, 2); });
       if (powersRef.current.shield || powersRef.current.grace > 0) {
@@ -679,9 +793,10 @@ export default function Home() {
         ctx.strokeStyle = particle.color; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(particle.x - camera, particle.y); ctx.lineTo(particle.x - camera - particle.vx * 2.5, particle.y - particle.vy * 2.5); ctx.stroke();
       }); ctx.globalAlpha = 1;
       const gateX = level.gateX - camera;
-      const gateOpen = coresRef.current.every(core => core.taken);
-      const tint = gateOpen ? '#6affdc' : '#ff8b55';
-      glow(gateX + 10, 157, 35, gateOpen ? '#44ffbf55' : '#ff5e2825');
+      const bossAlive = enemiesRef.current.some(enemy => enemy.kind === 'frost-king' && enemy.alive);
+      const gateOpen = coresRef.current.every(core => core.taken) && !bossAlive;
+      const tint = gateOpen ? '#6affdc' : level.icy ? '#9bd9ff' : '#ff8b55';
+      glow(gateX + 10, 157, 35, gateOpen ? '#44ffbf55' : level.icy ? '#73b9ff33' : '#ff5e2825');
       ctx.save();
       const metal = ctx.createLinearGradient(gateX - 5, 0, gateX + 25, 0);
       metal.addColorStop(0, '#2b3949'); metal.addColorStop(0.3, '#afbcc4'); metal.addColorStop(0.5, '#41556a'); metal.addColorStop(1, '#1b2636');
@@ -698,14 +813,14 @@ export default function Home() {
         ctx.fillStyle = '#253546'; ctx.fillRect(gateX + 3, 146, 14, 28);
         ctx.strokeStyle = '#0c1722'; ctx.lineWidth = 1;
         for (let y = 149; y < 174; y += 5) { ctx.beginPath(); ctx.moveTo(gateX + 3, y); ctx.lineTo(gateX + 17, y); ctx.stroke(); }
-        ctx.fillStyle = '#ff9c59'; ctx.fillRect(gateX + 9, 146, 2, 28);
+        ctx.fillStyle = level.icy ? '#a2e4ff' : '#ff9c59'; ctx.fillRect(gateX + 9, 146, 2, 28);
       }
       ctx.fillStyle = '#526878'; ctx.fillRect(gateX - 6, 174, 32, 2);
       coresRef.current.forEach((core, i) => { ctx.fillStyle = core.taken ? '#9affdf' : '#623e36'; ctx.fillRect(gateX + 4 + i * 5, 139, 3, 2); });
       ctx.strokeStyle = tint; ctx.lineWidth = 0.8;
       for (const x of [gateX - 2, gateX + 22]) { ctx.beginPath(); ctx.moveTo(x, 149); ctx.lineTo(x, 172); ctx.stroke(); }
       ctx.restore();
-      pixelText(ctx, gateOpen ? 'PORTAL READY' : '3 CORES REQUIRED', gateX + 10, 132, gateOpen ? '#b6ffe9' : '#ffd09e', 'center');
+      pixelText(ctx, gateOpen ? 'PORTAL READY' : bossAlive ? 'DEFEAT FROST KING' : '3 CORES REQUIRED', gateX + 10, 132, gateOpen ? '#b6ffe9' : '#ffd09e', 'center');
       ctx.save();
       drawHero(player.x - camera, player.y, player.facing, timeRef.current);
       ctx.restore();
@@ -722,6 +837,10 @@ export default function Home() {
       if (respawnFramesRef.current > 0) { respawnFramesRef.current--; return; }
       timeRef.current += 1;
       if (powersRef.current.grace > 0) powersRef.current.grace--;
+      if (!gameWonRef.current && powersRef.current.flame > 0) {
+        powersRef.current.flame--;
+        if (powersRef.current.flame % 60 === 0) setPowerHud(current => ({ ...current, flame: Math.ceil(powersRef.current.flame / 60) }));
+      }
       if (!gameWonRef.current && powersRef.current.rapid > 0) {
         powersRef.current.rapid--;
         if (powersRef.current.rapid % 60 === 0) setPowerHud(current => ({ ...current, rapid: Math.ceil(powersRef.current.rapid / 60) }));
@@ -739,7 +858,7 @@ export default function Home() {
         duckRef.current = wasOnFloor && pressed.has('duck');
         const move = (pressed.has('right') ? 1 : 0) - (pressed.has('left') ? 1 : 0);
         player.vx += move * 0.27;
-        player.vx *= move === 0 ? 0.75 : 0.92;
+        player.vx *= level.icy && wasOnFloor ? (duckRef.current ? 0.65 : move === 0 ? 0.975 : 0.96) : move === 0 ? 0.75 : 0.92;
         const speed = duckRef.current ? 0.85 : 2.2;
         player.vx = Math.max(-speed, Math.min(speed, player.vx));
         if (move !== 0) player.facing = move;
@@ -760,11 +879,18 @@ export default function Home() {
           }
         }
         if (player.vy !== 0) duckRef.current = false;
+        for (const barrier of barriersRef.current) {
+          const bounds = playerBounds(player.x, player.y, duckRef.current);
+          if (barrier.hp > 0 && overlap(bounds.x, bounds.y, bounds.w, bounds.h, barrier.x, barrier.y, barrier.w, barrier.h)) {
+            player.x = player.x + 5 < barrier.x + barrier.w / 2 ? barrier.x - 11 : barrier.x + barrier.w;
+            player.vx = 0;
+          }
+        }
         const body = playerBounds(player.x, player.y, duckRef.current);
         if (pressed.has('shoot') && shotCooldownRef.current <= 0) {
           const up = pressed.has('aimUp');
           const muzzle = heroMuzzle(player.x, player.y, player.facing, heroPose(player.vx, player.vy, duckRef.current, timeRef.current), up);
-          bulletsRef.current.push({ x: muzzle.x - (up ? 1 : 2), y: muzzle.y - (up ? 2 : 1), direction: player.facing, up });
+          bulletsRef.current.push({ x: muzzle.x - (up ? 1 : 2), y: muzzle.y - (up ? 2 : 1), direction: player.facing, up, flame: powersRef.current.flame > 0 });
           sound('shoot');
           shotCooldownRef.current = powersRef.current.rapid > 0 ? 5 : 14;
         }
@@ -772,17 +898,17 @@ export default function Home() {
         bulletsRef.current = bulletsRef.current.map((bullet) => ({ ...bullet, x: bullet.x + (bullet.up ? 0 : bullet.direction * 4.5), y: bullet.y - (bullet.up ? 4.5 : 0) })).filter((bullet) => bullet.x > 0 && bullet.x < level.width && bullet.y > -8);
         for (const enemy of enemiesRef.current) {
           if (!enemy.alive) continue;
-          if (enemy.kind === 'dragon') {
+          if (enemy.kind === 'dragon' || enemy.kind === 'ice-dragon' || enemy.kind === 'frost-king') {
             const distance = player.x - enemy.x;
             enemy.direction = distance < 0 ? -1 : 1;
             if (Math.abs(distance) < 220) {
-              enemy.x = Math.max(enemy.min, Math.min(enemy.max, enemy.x + enemy.direction * 0.38));
+              enemy.x = Math.max(enemy.min, Math.min(enemy.max, enemy.x + enemy.direction * (enemy.kind === 'frost-king' ? 0.75 : 0.38)));
               enemy.cooldown = (enemy.cooldown ?? 135) - 1;
               if (enemy.cooldown <= 0) {
                 const x = enemy.x + 6 + enemy.direction * 12, y = enemy.y + 3;
                 const angle = Math.atan2(player.y + 7 - y, player.x + 6 - x);
-                for (const spread of [-0.13, 0, 0.13]) dragonFireRef.current.push({ x, y, vx: Math.cos(angle + spread) * 1.8, vy: Math.sin(angle + spread) * 1.8, life: 125 });
-                enemy.cooldown = Math.max(115, 165 - levelRef.current * 15);
+                for (const spread of (enemy.kind === 'frost-king' ? [-0.28, -0.14, 0, 0.14, 0.28] : [-0.13, 0, 0.13])) dragonFireRef.current.push({ x, y, vx: Math.cos(angle + spread) * 1.8, vy: Math.sin(angle + spread) * 1.8, life: 125 });
+                enemy.cooldown = enemy.kind === 'frost-king' ? ((enemy.hp ?? 18) < 9 ? 80 : 120) : Math.max(115, 165 - levelRef.current * 15);
                 sound('shoot');
               }
             }
@@ -796,7 +922,7 @@ export default function Home() {
             const chase = !enemy.flying && Math.abs(player.x - enemy.x) < 150 && Math.abs(player.y - enemy.y) < 48;
             if (chase) enemy.direction = player.x < enemy.x ? -1 : 1;
             const before = enemy.x;
-            enemy.x = Math.max(enemy.min, Math.min(enemy.max, enemy.x + enemy.direction * (chase ? (enemy.kind === 'armored' ? 0.95 : 1.1) : 0.55)));
+            enemy.x = Math.max(enemy.min, Math.min(enemy.max, enemy.x + enemy.direction * (chase ? (enemy.kind === 'yeti' ? 1.4 : enemy.kind === 'armored' ? 0.95 : 1.1) : 0.55)));
             enemy.moving = Math.abs(enemy.x - before) > 0.01;
             if (enemy.moving) enemy.animation = (enemy.animation ?? 0) + 1;
             if (!chase && (enemy.x <= enemy.min || enemy.x >= enemy.max)) enemy.direction *= -1;
@@ -807,18 +933,33 @@ export default function Home() {
               if (!enemy.alive) break;
               sound('hit');
               burst(enemy.x + 6, enemy.y + 6, '#ffb45b');
-              enemy.hp = (enemy.hp ?? 1) - (powersRef.current.rapid > 0 ? 2 : 1);
+              enemy.hp = (enemy.hp ?? 1) - (bullet.flame ? 3 : powersRef.current.rapid > 0 ? 2 : 1);
               enemy.alive = enemy.hp > 0;
               bullet.x = -99;
-              if (!enemy.alive) scoreRef.current += enemy.kind ? 200 : 100;
+              if (!enemy.alive) { scoreRef.current += enemy.kind === 'frost-king' ? 2000 : enemy.kind ? 200 : 100; if (enemy.kind === 'frost-king') setNotice('Frost King defeated! Collect all three cores and enter the portal.'); }
               setHud((current) => ({ ...current, score: scoreRef.current }));
             }
           }
           if (enemy.alive && overlap(body.x, body.y, body.w, body.h, target.x, target.y, target.w, target.h)) { loseLife('Hit by a creature'); return; }
         }
+        for (const barrier of barriersRef.current) for (const bullet of bulletsRef.current) {
+          if (barrier.hp > 0 && overlap(bullet.x, bullet.y, bullet.up ? 2 : 4, bullet.up ? 4 : 2, barrier.x, barrier.y, barrier.w, barrier.h)) {
+            barrier.hp -= bullet.flame ? 3 : 1; bullet.x = -99; sound('hit'); burst(barrier.x + 7, barrier.y + 15, '#b5eaff');
+          }
+        }
+        for (const shard of iciclesRef.current) {
+          if (shard.timer > 0) shard.timer--;
+          if (!shard.warning && !shard.falling && shard.timer === 0 && Math.abs(player.x - shard.x) < 70) { shard.warning = true; shard.timer = 40; }
+          if (shard.warning && shard.timer === 0) { shard.warning = false; shard.falling = true; }
+          if (shard.falling) {
+            shard.y += 3.4;
+            if (overlap(body.x, body.y, body.w, body.h, shard.x, shard.y, 6, 12)) { shard.falling = false; shard.y = 24; shard.timer = 150; loseLife('Hit by a falling icicle'); return; }
+            if (shard.y > 185 || platforms.some(p => overlap(shard.x, shard.y, 6, 12, p.x, p.y, p.w, p.h))) { burst(shard.x, shard.y, '#d2f2ff'); shard.falling = false; shard.y = 24; shard.timer = 150; }
+          }
+        }
         dragonFireRef.current = dragonFireRef.current.map(fire => ({ ...fire, x: fire.x + fire.vx, y: fire.y + fire.vy, life: fire.life - 1 })).filter(fire => fire.life > 0 && fire.x > 0 && fire.x < level.width && fire.y < 192 && !platforms.some(platform => overlap(fire.x, fire.y, 6, 6, platform.x, platform.y, platform.w, platform.h)));
         for (const fire of dragonFireRef.current) {
-          if (overlap(body.x, body.y, body.w, body.h, fire.x, fire.y, 6, 6)) { fire.life = 0; sound('burn'); loseLife('Burned by dragon fire'); return; }
+          if (overlap(body.x, body.y, body.w, body.h, fire.x, fire.y, 6, 6)) { fire.life = 0; if (!level.icy) sound('burn'); loseLife(level.icy ? 'Hit by frost breath' : 'Burned by dragon fire'); return; }
         }
         enemyShotsRef.current = enemyShotsRef.current.map(shot => ({ ...shot, x: shot.x + shot.direction * 2.3 })).filter(shot => shot.x > 0 && shot.x < level.width && !platforms.some(platform => overlap(shot.x, shot.y, 4, 2, platform.x, platform.y, platform.w, platform.h)));
         for (const shot of enemyShotsRef.current) {
@@ -827,15 +968,16 @@ export default function Home() {
         powerupsRef.current.forEach(item => {
           if (item.taken || !overlap(body.x, body.y, body.w, body.h, item.x, item.y, 10, 10)) return;
           item.taken = true; sound('core'); burst(item.x + 5, item.y + 5, '#a3caff');
-          if (item.kind === 'shield') { powersRef.current.shield = true; setNotice('Shield ready: absorbs one enemy hit. Fire and lava still burn.'); }
+          if (item.kind === 'shield') { powersRef.current.shield = true; setNotice(level.icy ? 'Shield ready: absorbs an enemy or icicle hit. Avoid the abyss.' : 'Shield ready: absorbs one enemy hit. Ground fire and lava still burn.'); }
+          if (item.kind === 'flame') { powersRef.current.flame = 900; setNotice('Flame blaster: 15 seconds of triple damage. Melt ice barriers with two shots.'); }
           if (item.kind === 'rapid') { powersRef.current.rapid = 600; setNotice('Overdrive: rapid fire and double damage for 10 seconds.'); }
           if (item.kind === 'life') { livesRef.current = Math.min(3, livesRef.current + 1); setHud(current => ({ ...current, lives: livesRef.current })); setNotice('Repair pack collected. Suit integrity restored by one.'); }
-          setPowerHud({ shield: powersRef.current.shield, rapid: Math.ceil(powersRef.current.rapid / 60) });
+          setPowerHud({ shield: powersRef.current.shield, rapid: Math.ceil(powersRef.current.rapid / 60), flame: Math.ceil(powersRef.current.flame / 60) });
         });
         for (const spike of spikes) {
-          if (overlap(body.x + 2, body.y + 2, 8, body.h - 2, spike.x, spike.y, spike.w, 8)) { loseLife('Burned by fire! Jump over it', true); return; }
+          if (overlap(body.x + 2, body.y + 2, 8, body.h - 2, spike.x, spike.y, spike.w, 8)) { loseLife(level.icy ? 'Landed on ice spikes' : 'Burned by fire! Jump over it', !level.icy); return; }
         }
-        if (player.y + 14 >= 185) { loseLife('Fell into the lava', true); return; }
+        if (player.y + 14 >= 185) { loseLife(level.icy ? 'Fell into the frozen abyss' : 'Fell into the lava', true); return; }
         coresRef.current.forEach((core) => {
           if (!core.taken && overlap(body.x, body.y, body.w, body.h, core.x, core.y, 10, 11)) {
             burst(core.x + 5, core.y + 5, '#66ffe0');
@@ -845,7 +987,7 @@ export default function Home() {
             setHud((current) => ({ ...current, cores: coresRef.current.filter((item) => item.taken).length, score: scoreRef.current }));
           }
         });
-        if (coresRef.current.every((core) => core.taken) && overlap(body.x, body.y, body.w, body.h, level.gateX, 145, 20, 31)) {
+        if (coresRef.current.every((core) => core.taken) && !enemiesRef.current.some(enemy => enemy.kind === 'frost-king' && enemy.alive) && overlap(body.x, body.y, body.w, body.h, level.gateX, 145, 20, 31)) {
           sound('win');
           gameWonRef.current = true;
           scoreRef.current += 1000;
@@ -881,12 +1023,14 @@ export default function Home() {
     onLostPointerCapture: (event: PointerEvent<HTMLButtonElement>) => setPressed(key, false, `pointer:${event.pointerId}`),
   });
 
+  const locationIndex = levels[levelIndex].icy ? 1 : 0;
+  const location = locations[locationIndex];
   return (
-    <main className="game-page">
+    <main className={`game-page ${locationIndex === 1 ? 'frozen-location' : ''}`}>
       <section className="game-shell" aria-labelledby="game-title">
         <header className="game-header">
           <div>
-            <p className="eyebrow">VOLCANO · STAGE 0{levelIndex + 1} / {levels[levelIndex].name.toUpperCase()}</p>
+            <p className="eyebrow">{location.name.toUpperCase()} · STAGE 0{levelIndex % 3 + 1} / {levels[levelIndex].name.toUpperCase()}</p>
             <h1 id="game-title">Dare Runner</h1>
           </div>
           <div className="status-panel" aria-live="polite">
@@ -895,18 +1039,22 @@ export default function Home() {
             <span><Crosshair size={16} /> <small>SCORE</small><b>{hud.score.toString().padStart(5, '0')}</b></span>
           </div>
         </header>
-        <section className="location-panel" aria-label="Locations"><div><span className="eyebrow">LOCATION 01</span><h2>{locations[0].name}</h2><p>{locations[0].description}</p></div><span className="location-badge">3 stages · Fire dragons</span></section>
-        <nav className="level-selector" aria-label="Choose a level">
-          {levels.map((level, index) => <Button key={level.name} className="restart-button" aria-pressed={levelIndex === index} onClick={() => loadLevel(index)}>0{index + 1} · {level.name}</Button>)}
+        <nav className="location-selector" aria-label="Choose a location">
+          {locations.map((place, index) => <Button key={place.name} className="restart-button" aria-pressed={locationIndex === index} onClick={() => loadLevel(place.levels[0])}>Location 0{index + 1} · {place.name}</Button>)}
         </nav>
+        <section className="location-panel" aria-label="Current location"><div><span className="eyebrow">LOCATION 0{locationIndex + 1}</span><h2>{location.name}</h2><p>{location.description}</p></div><span className="location-badge">{locationIndex === 1 ? '3 stages · Ice dragons & Frost King' : '3 stages · Fire dragons'}</span></section>
+        <nav className="level-selector" aria-label="Choose a level">
+          {location.levels.map((index, stage) => <Button key={levels[index].name} className="restart-button" aria-pressed={levelIndex === index} onClick={() => loadLevel(index)}>0{stage + 1} · {levels[index].name}</Button>)}
+        </nav>
+        {locationIndex === 1 && <div className="powerup-hud" aria-live="polite"><span>🔥 {powerHud.flame > 0 ? `Flame blaster ${powerHud.flame}s` : 'Collect flame blasters · melt ice'}</span><span>🛡 {powerHud.shield ? 'Shield ready' : 'Collect a shield'}</span><span>Hold ↓ / S to brake on ice</span></div>}
         {levelIndex === 2 && <div className="powerup-hud" aria-live="polite"><span>🛡 Shield pickup · {powerHud.shield ? 'Shield ready' : 'Collect a shield'}</span><span>⚡ Overdrive pickup · {powerHud.rapid > 0 ? `Overdrive ${powerHud.rapid}s` : '10s rapid fire + double damage'}</span><span>+ · Repair one life</span></div>}
-        <div className="screen-topline"><span><i /> EXPEDITION ACTIVE</span><span>{levels[levelIndex].name.toUpperCase()} <b>0{levelIndex + 1}</b></span></div>
+        <div className="screen-topline"><span><i /> EXPEDITION ACTIVE</span><span>{levels[levelIndex].name.toUpperCase()} <b>0{levelIndex % 3 + 1}</b></span></div>
         <div className="screen-frame">
           <canvas ref={canvasRef} width={VIEW_WIDTH * 4} height={VIEW_HEIGHT * 4} aria-label={`Playable Dare Runner level ${levelIndex + 1}: ${levels[levelIndex].name}. Collect three power cores, shoot monsters, and reach the exit.`} />
         </div>
         <div className="game-footer">
-          <p><Zap size={18} /><span><strong>{hud.won ? (levelIndex < levels.length - 1 ? `LEVEL ${levelIndex + 1} COMPLETE` : 'EXPEDITION COMPLETE') : 'RESTORE THE EXIT GATE'}</strong>{hud.won ? (levelIndex < levels.length - 1 ? `${levels[levelIndex + 1].name} awaits. Continue to Level ${levelIndex + 2}.` : 'Obsidian Stronghold cleared. Expedition complete!') : notice}</span></p>
-          <div className="game-actions">{hud.won && levelIndex < levels.length - 1 && <Button className="restart-button" onClick={nextLevel}>Next level →</Button>}<Button className="restart-button" aria-pressed={muted} onClick={toggleMuted}>{muted ? 'Sound off' : 'Sound on'}</Button>
+          <p><Zap size={18} /><span><strong>{hud.won ? (levelIndex < levels.length - 1 ? `LEVEL ${levelIndex + 1} COMPLETE` : 'EXPEDITION COMPLETE') : 'RESTORE THE EXIT GATE'}</strong>{hud.won ? (levelIndex < levels.length - 1 ? `${levels[levelIndex + 1].name} awaits. Continue to Level ${levelIndex + 2}.` : 'Frozen Citadel cleared. Expedition complete!') : notice}</span></p>
+          <div className="game-actions">{hud.won && levelIndex < levels.length - 1 && <Button className="restart-button" onClick={nextLevel}>{levelIndex === 2 ? 'Enter Frozen Citadel →' : 'Next level →'}</Button>}<Button className="restart-button" aria-pressed={muted} onClick={toggleMuted}>{muted ? 'Sound off' : 'Sound on'}</Button>
           <Button className="restart-button" onClick={resetLevel}><RotateCcw size={15} /> Restart level</Button></div>
         </div>
         <div className="instructions" aria-label="Game controls">

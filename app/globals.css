@@ -135,3 +135,14 @@ body { background:radial-gradient(ellipse at 48% 0%,#3b1b13 0%,#160f0d 55%,#0908
 .screen-frame { background:#1b0c09; border-color:#72503b; box-shadow:0 0 0 5px #1c120e,0 0 70px #ff5a1918,0 30px 80px #0009; }
 
 .touch-controls, .touch-group { flex-wrap:wrap; }
+
+.location-selector { display:flex; flex-wrap:wrap; gap:0.6rem; margin:0 0 0.8rem; }
+.location-selector [aria-pressed="true"] { background:#62321e; border-color:#eda167; color:#fff4df; }
+.frozen-location { background:radial-gradient(ellipse at 50% 0%,#153c65,#070e21 70%); }
+.frozen-location .screen-topline { background:#10253d; border-color:#3c688b; color:#d3edff; }
+.frozen-location .screen-topline i { background:#a1eaff; box-shadow:0 0 9px #78caff; }
+.frozen-location .screen-topline b { color:#a9e4ff; }
+.frozen-location .screen-frame { border-color:#5483a6; background:#07152a; box-shadow:0 0 0 5px #102236,0 0 70px #62c9ff15,0 30px 80px #0009; }
+.frozen-location .location-panel { border-color:#3d6890; background:linear-gradient(110deg,#143655,#131b38); }
+.frozen-location .location-selector [aria-pressed="true"], .frozen-location .level-selector [aria-pressed="true"] { background:#214c73; border-color:#8fd8ff; color:#e2f5ff; }
+.frozen-location .location-badge { color:#c9edff; border-color:#427b9c; background:#14334b; }
