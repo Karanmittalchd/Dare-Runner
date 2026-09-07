@@ -253,6 +253,8 @@ export default function Home() {
   const respawnFramesRef = useRef(0);
   const [notice, setNotice] = useState('Jump over fire and lava. Collect three cores to open the exit.');
   const jumpHeldRef = useRef(false);
+  const jumpBufferRef = useRef(0);
+  const coyoteFramesRef = useRef(0);
   const inputSourcesRef = useRef(new Map<string, string>());
   const duckRef = useRef(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -280,6 +282,8 @@ export default function Home() {
     levelRef.current = index;
     setLevelIndex(index);
     respawnFramesRef.current = 0;
+    jumpBufferRef.current = 0;
+    coyoteFramesRef.current = 0;
     setNotice(levels[index].icy ? 'Ice is slippery: hold Down/S to brake. Shoot ice barriers; flame shots melt them faster. Watch for falling icicles.' : index === 0 ? 'Jump over fire and lava. Collect three cores to open the exit.' : index === 1 ? 'Climb the upper ledges for three cores. Watch for flying creatures.' : 'Armored guards take 3 hits. Duck sentry bolts. Collect shield and rapid-fire power-ups.');
     jumpHeldRef.current = false;
     inputSourcesRef.current.clear();
@@ -310,13 +314,15 @@ export default function Home() {
       setPowerHud(current => ({ ...current, shield: false }));
       sound('hit'); setNotice('Shield absorbed the hit. Keep moving!'); return;
     }
-    powersRef.current = { shield: false, rapid: 0, flame: 0, grace: 0 };
+    powersRef.current = { shield: false, rapid: 0, flame: 0, grace: 90 };
     setPowerHud({ shield: false, rapid: 0, flame: 0 });
     enemyShotsRef.current = [];
     dragonFireRef.current = [];
     powerupsRef.current = (levels[levelRef.current].powerups ?? []).map(item => ({ ...item }));
     iciclesRef.current = (levels[levelRef.current].icicles ?? []).map(x => ({ x, y: 24, timer: 0, falling: false, warning: false }));
     respawnFramesRef.current = 45;
+    jumpBufferRef.current = 0;
+    coyoteFramesRef.current = 0;
     cameraRef.current = 0;
     shotCooldownRef.current = 0;
     sound(burn && !levels[levelRef.current].icy ? 'burn' : 'hurt');
@@ -367,7 +373,7 @@ export default function Home() {
       const key = event.key.toLowerCase();
       if (bindings[key]) setPressed(bindings[key], false, `keyboard:${key}`);
     };
-    const clearKeys = () => { inputSourcesRef.current.clear(); pressedRef.current.clear(); jumpHeldRef.current = false; };
+    const clearKeys = () => { inputSourcesRef.current.clear(); pressedRef.current.clear(); jumpHeldRef.current = false; jumpBufferRef.current = 0; coyoteFramesRef.current = 0; };
     const onVisibility = () => { if (document.hidden) clearKeys(); };
     window.addEventListener('blur', clearKeys);
     document.addEventListener('visibilitychange', onVisibility);
@@ -787,10 +793,12 @@ export default function Home() {
         const x = core.x - camera;
         const y = core.y + Math.sin(timeRef.current / 22 + index) * 1.5;
         glow(x + 5, y + 5, 19, '#55ffe54a');
-        ctx.save(); ctx.translate(x + 5, y + 5); ctx.rotate(timeRef.current / 65);
-        ctx.strokeStyle = '#64ffe884'; ctx.lineWidth = 0.5; ctx.strokeRect(-6, -6, 12, 12); ctx.restore();
+        ctx.save(); ctx.strokeStyle = '#64ffe884'; ctx.lineWidth = 0.5;
+        ctx.beginPath(); ctx.ellipse(x + 5, y + 7, 8, 2.5, Math.sin(timeRef.current / 65) * 0.35, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
         ctx.fillStyle = '#5effdc'; ctx.beginPath(); ctx.moveTo(x + 5, y); ctx.lineTo(x + 9, y + 5); ctx.lineTo(x + 5, y + 10); ctx.lineTo(x + 1, y + 5); ctx.closePath(); ctx.fill();
         ctx.fillStyle = '#e7fff9'; ctx.beginPath(); ctx.moveTo(x + 5, y); ctx.lineTo(x + 5, y + 7); ctx.lineTo(x + 1, y + 5); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#168f92'; ctx.beginPath(); ctx.moveTo(x + 5, y + 7); ctx.lineTo(x + 9, y + 5); ctx.lineTo(x + 5, y + 10); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = '#d5fff5'; ctx.lineWidth = 0.35; ctx.beginPath(); ctx.moveTo(x + 1, y + 5); ctx.lineTo(x + 5, y + 3); ctx.lineTo(x + 9, y + 5); ctx.stroke();
       });
       enemiesRef.current.forEach((enemy) => { if (enemy.alive) drawEnemy(enemy, camera, timeRef.current); });
       bulletsRef.current.forEach((bullet) => {
@@ -910,7 +918,13 @@ export default function Home() {
         if (move !== 0) player.facing = move;
         const jumpPressed = pressed.has('jump') && !jumpHeldRef.current;
         jumpHeldRef.current = pressed.has('jump');
-        if (jumpPressed && wasOnFloor) { duckRef.current = false; player.vy = -6.7; sound('jump'); }
+        // Remember early jump presses and allow a brief grace period off ledges.
+        jumpBufferRef.current = jumpPressed ? 7 : Math.max(0, jumpBufferRef.current - 1);
+        coyoteFramesRef.current = wasOnFloor && player.vy >= 0 ? 6 : Math.max(0, coyoteFramesRef.current - 1);
+        if (jumpBufferRef.current > 0 && coyoteFramesRef.current > 0) {
+          duckRef.current = false; player.vy = -6.7;
+          jumpBufferRef.current = 0; coyoteFramesRef.current = 0; sound('jump');
+        }
         player.vy = Math.min(player.vy + 0.38, 7.5);
         const previousBottom = player.y + 14;
         player.x = Math.max(0, Math.min(level.width - 12, player.x + player.vx));
@@ -1029,6 +1043,8 @@ export default function Home() {
             burst(core.x + 5, core.y + 5, '#66ffe0');
             sound('core');
             core.taken = true;
+            const collected = coresRef.current.filter(item => item.taken).length;
+            setNotice(collected === 3 ? (enemiesRef.current.some(enemy => enemy.kind === 'frost-king' && enemy.alive) ? 'All cores collected. Defeat the Frost King to unlock the exit.' : 'All cores collected! The exit gate is open — keep heading right.') : `Power core ${collected} of 3 secured. ${3 - collected} remaining.`);
             scoreRef.current += 250;
             setHud((current) => ({ ...current, cores: coresRef.current.filter((item) => item.taken).length, score: scoreRef.current }));
           }
