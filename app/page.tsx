@@ -447,6 +447,7 @@ export default function Home() {
     const frozen = new Image(); frozen.src = '/frozen-citadel.png';
     const ice = new Image(); ice.src = '/icy-platform.png';
     const frozenSprites = loadAnimationSprites('/frozen-enemies.png');
+    const pickupSprites = loadAnimationSprites('/powerup-atlas.png', { rows: 1, individual: true, columnBreaks: [0, 0.25, 0.5, 1460 / 1983, 1] });
     const sprites = loadSprites('/runner-atlas.png');
     const volcanoSprites = loadAnimationSprites('/volcano-enemies.png');
     const heroUpSprites = loadAnimationSprites('/hero-up.png', { trim: false, rowSplit: 410 / 887, chromaKey: false, lightBackdrop: true });
@@ -772,10 +773,21 @@ export default function Home() {
         if (item.taken) return;
         const x = item.x - camera;
         const color = item.kind === 'flame' ? '#ff9b48' : item.kind === 'shield' ? '#72beff' : item.kind === 'rapid' ? '#e6a1ff' : '#ff91a4';
-        glow(x + 5, item.y + 5, 13, color + '55');
-        ctx.fillStyle = '#122033'; ctx.fillRect(x, item.y, 10, 10);
-        ctx.strokeStyle = color; ctx.lineWidth = 0.7; ctx.strokeRect(x, item.y, 10, 10);
-        pixelText(ctx, item.kind === 'flame' ? 'F' : item.kind === 'shield' ? 'S' : item.kind === 'rapid' ? 'R' : '+', x + 5, item.y + 8, color, 'center');
+        if (x < -20 || x > VIEW_WIDTH + 20) return;
+        const bob = Math.sin(timeRef.current / 18 + item.x * 0.04) * 1.2;
+        const pulse = 0.65 + Math.sin(timeRef.current / 22 + item.x) * 0.2;
+        glow(x + 5, item.y + 4 + bob, 14, color + '55');
+        ctx.save(); ctx.globalAlpha = pulse; ctx.strokeStyle = color; ctx.lineWidth = 0.6;
+        ctx.beginPath(); ctx.ellipse(x + 5, item.y + 12, 7, 1.8, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+        const pose = { shield: 0, rapid: 1, life: 2, flame: 3 }[item.kind];
+        if (!drawSprite(ctx, pickupSprites, pose, x + 5, item.y + 11 + bob, 14, 1)) {
+          ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x + 5, item.y + 5, 3, 0, Math.PI * 2); ctx.fill();
+        }
+        for (let i = 0; i < 2; i++) {
+          const phase = (timeRef.current / 55 + i / 2 + item.x / 200) % 1;
+          ctx.save(); ctx.globalAlpha = (1 - phase) * 0.7; ctx.fillStyle = color;
+          ctx.fillRect(x + 1 + i * 7, item.y + 8 - phase * 15, 0.7, 0.7); ctx.restore();
+        }
       });
       dragonFireRef.current.forEach(fire => {
         const x = fire.x - camera;

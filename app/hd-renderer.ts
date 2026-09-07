@@ -73,18 +73,19 @@ export function atmosphere(ctx: CanvasRenderingContext2D, frame: number, level: 
 }
 
 // The animation atlas uses four columns: running poses above, wingbeats below.
-export function loadAnimationSprites(url: string, options: { trim?: boolean; rowSplit?: number; chromaKey?: boolean; lightBackdrop?: boolean } = {}): SpriteSet {
+export function loadAnimationSprites(url: string, options: { trim?: boolean; rowSplit?: number; chromaKey?: boolean; lightBackdrop?: boolean; rows?: 1 | 2; individual?: boolean; columnBreaks?: number[] } = {}): SpriteSet {
   const result: SpriteSet = { frames: [] };
   const atlas = new Image();
   atlas.onload = () => {
-    const width = Math.ceil(atlas.naturalWidth / 4), height = Math.ceil(atlas.naturalHeight / 2);
+    const rows = options.rows ?? 2;
+    const width = Math.ceil(atlas.naturalWidth / 4), height = Math.ceil(atlas.naturalHeight / rows);
     const splitY = Math.round(atlas.naturalHeight * (options.rowSplit ?? 0.5));
     const cells: HTMLCanvasElement[] = [];
-    const bounds = [0, 1].map(() => ({ left: width, top: height, right: 0, bottom: 0 }));
-    for (let i = 0; i < 8; i++) {
-      const left = Math.floor(i % 4 * atlas.naturalWidth / 4);
-      const cellWidth = Math.floor((i % 4 + 1) * atlas.naturalWidth / 4) - left;
-      const top = i < 4 ? 0 : splitY, cellHeight = i < 4 ? splitY : atlas.naturalHeight - splitY;
+    const bounds = Array.from({ length: options.individual ? rows * 4 : rows }, () => ({ left: width, top: height, right: 0, bottom: 0 }));
+    for (let i = 0; i < rows * 4; i++) {
+      const left = Math.floor((options.columnBreaks?.[i % 4] ?? i % 4 / 4) * atlas.naturalWidth);
+      const cellWidth = Math.floor((options.columnBreaks?.[i % 4 + 1] ?? (i % 4 + 1) / 4) * atlas.naturalWidth) - left;
+      const top = i < 4 ? 0 : splitY, cellHeight = rows === 1 ? atlas.naturalHeight : i < 4 ? splitY : atlas.naturalHeight - splitY;
       const frame = document.createElement('canvas'); frame.width = cellWidth; frame.height = cellHeight;
       const context = frame.getContext('2d', { willReadFrequently: true });
       if (!context) return;
@@ -95,7 +96,7 @@ export function loadAnimationSprites(url: string, options: { trim?: boolean; row
         if (options.lightBackdrop && Math.min(r, g, b) > 210 && Math.max(r, g, b) - Math.min(r, g, b) < 18) pixels.data[p + 3] = 0;
         if (options.chromaKey !== false && g > 85 && g > r * 1.35 && g > b * 1.35) pixels.data[p + 3] = 0;
       }
-      const box = bounds[Math.floor(i / 4)];
+      const box = bounds[options.individual ? i : Math.floor(i / 4)];
       for (let y = 0; y < cellHeight; y++) for (let x = 0; x < cellWidth; x++) if (pixels.data[(y * cellWidth + x) * 4 + 3] > 40) {
         box.left = Math.min(box.left, x); box.right = Math.max(box.right, x);
         box.top = Math.min(box.top, y); box.bottom = Math.max(box.bottom, y);
@@ -105,7 +106,7 @@ export function loadAnimationSprites(url: string, options: { trim?: boolean; row
     if (options.trim === false) { result.frames.push(...cells); return; }
     // Shared row bounds keep feet and wingbeats stable between poses.
     cells.forEach((cell, i) => {
-      const box = bounds[Math.floor(i / 4)];
+      const box = bounds[options.individual ? i : Math.floor(i / 4)];
       const frame = document.createElement('canvas');
       frame.width = Math.max(1, box.right - box.left + 1); frame.height = Math.max(1, box.bottom - box.top + 1);
       frame.getContext('2d')?.drawImage(cell, box.left, box.top, frame.width, frame.height, 0, 0, frame.width, frame.height);
