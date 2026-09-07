@@ -133,3 +133,5 @@ body { background:radial-gradient(ellipse at 48% 0%,#3b1b13 0%,#160f0d 55%,#0908
 .screen-topline i { background:#ffae63; box-shadow:0 0 9px #ff672a; }
 .screen-topline b { color:#ffb379; }
 .screen-frame { background:#1b0c09; border-color:#72503b; box-shadow:0 0 0 5px #1c120e,0 0 70px #ff5a1918,0 30px 80px #0009; }
+
+.touch-controls, .touch-group { flex-wrap:wrap; }

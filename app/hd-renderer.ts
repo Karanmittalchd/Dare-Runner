@@ -73,7 +73,7 @@ export function atmosphere(ctx: CanvasRenderingContext2D, frame: number, level: 
 }
 
 // The animation atlas uses four columns: running poses above, wingbeats below.
-export function loadAnimationSprites(url: string, options: { trim?: boolean; rowSplit?: number; chromaKey?: boolean } = {}): SpriteSet {
+export function loadAnimationSprites(url: string, options: { trim?: boolean; rowSplit?: number; chromaKey?: boolean; lightBackdrop?: boolean } = {}): SpriteSet {
   const result: SpriteSet = { frames: [] };
   const atlas = new Image();
   atlas.onload = () => {
@@ -92,6 +92,7 @@ export function loadAnimationSprites(url: string, options: { trim?: boolean; row
       const pixels = context.getImageData(0, 0, cellWidth, cellHeight);
       for (let p = 0; p < pixels.data.length; p += 4) {
         const r = pixels.data[p], g = pixels.data[p + 1], b = pixels.data[p + 2];
+        if (options.lightBackdrop && Math.min(r, g, b) > 210 && Math.max(r, g, b) - Math.min(r, g, b) < 18) pixels.data[p + 3] = 0;
         if (options.chromaKey !== false && g > 85 && g > r * 1.35 && g > b * 1.35) pixels.data[p + 3] = 0;
       }
       const box = bounds[Math.floor(i / 4)];

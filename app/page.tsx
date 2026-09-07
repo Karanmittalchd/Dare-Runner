@@ -5,7 +5,7 @@ import { Crosshair, Gem, Heart, RotateCcw, Zap } from 'lucide-react';
 import { loadSprites, loadAnimationSprites, drawSprite, atmosphere } from './hd-renderer';
 import { useGameAudio } from './use-game-audio';
 import { playerBounds } from './player-geometry';
-import { heroPose, heroMuzzle, heroAnchors, HERO_CELL_SIZE } from './hero-geometry';
+import { heroPose, heroMuzzle, heroAnchors, heroUpAnchors, HERO_UP_CELL_SIZE, HERO_CELL_SIZE } from './hero-geometry';
 import { Button } from '@/components/ui/button';
 
 const VIEW_WIDTH = 320;
@@ -29,7 +29,7 @@ type Enemy = {
   cooldown?: number;
 };
 type DragonFire = { x: number; y: number; vx: number; vy: number; life: number };
-type Bullet = { x: number; y: number; direction: number };
+type Bullet = { x: number; y: number; direction: number; up?: boolean };
 type ModelContextDocument = Document & {
   modelContext?: {
     registerTool: (
@@ -285,7 +285,7 @@ export default function Home() {
   }, [unlockAudio]);
 
   useEffect(() => {
-    const bindings: Record<string, string> = { arrowleft: 'left', a: 'left', arrowright: 'right', d: 'right', arrowup: 'jump', w: 'jump', arrowdown: 'duck', s: 'duck', ' ': 'shoot', x: 'shoot' };
+    const bindings: Record<string, string> = { arrowleft: 'left', a: 'left', arrowright: 'right', d: 'right', arrowup: 'jump', w: 'jump', arrowdown: 'duck', s: 'duck', ' ': 'shoot', x: 'shoot', e: 'aimUp' };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.target instanceof HTMLElement && (event.target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName))) return;
       const key = event.key.toLowerCase();
@@ -380,6 +380,7 @@ export default function Home() {
     const basalt = new Image(); basalt.src = '/volcano-basalt.png';
     const sprites = loadSprites('/runner-atlas.png');
     const volcanoSprites = loadAnimationSprites('/volcano-enemies.png');
+    const heroUpSprites = loadAnimationSprites('/hero-up.png', { trim: false, rowSplit: 410 / 887, chromaKey: false, lightBackdrop: true });
     const heroSprites = loadAnimationSprites('/hero-hd.png', { trim: false, rowSplit: 425 / 887, chromaKey: false });
     const particles: { x: number; y: number; vx: number; vy: number; life: number; color: string }[] = [];
     const burst = (x: number, y: number, color: string) => {
@@ -507,11 +508,13 @@ export default function Home() {
     const drawHero = (x: number, y: number, facing: number, frame: number) => {
       const player = playerRef.current;
       const pose = heroPose(player.vx, player.vy, duckRef.current, frame);
-      const sprite = heroSprites.frames[pose];
+      const aimUp = pressedRef.current.has('aimUp');
+      const sprite = (aimUp ? heroUpSprites : heroSprites).frames[pose];
       if (sprite) {
-        const anchor = heroAnchors[pose];
+        const anchor = (aimUp ? heroUpAnchors : heroAnchors)[pose];
+        const size = aimUp ? HERO_UP_CELL_SIZE : HERO_CELL_SIZE;
         ctx.save(); ctx.translate(x + 6, y + 14); ctx.scale(facing, 1);
-        ctx.drawImage(sprite, -anchor.bodyX * HERO_CELL_SIZE, -anchor.feetY * HERO_CELL_SIZE, HERO_CELL_SIZE, HERO_CELL_SIZE * sprite.height / sprite.width);
+        ctx.drawImage(sprite, -anchor.bodyX * size, -anchor.feetY * size, size, size * sprite.height / sprite.width);
         ctx.restore();
       } else {
         ctx.save();
@@ -519,11 +522,15 @@ export default function Home() {
         drawLegacyHero(x, y, facing, frame); ctx.restore();
       }
       if (shotCooldownRef.current > (powersRef.current.rapid > 0 ? 3 : 11)) {
-        const muzzle = heroMuzzle(x, y, facing, pose);
+        const muzzle = heroMuzzle(x, y, facing, pose, aimUp);
         glow(muzzle.x, muzzle.y, 5, '#ffdd7788');
         ctx.fillStyle = '#fff3b0'; ctx.beginPath();
-        ctx.moveTo(muzzle.x, muzzle.y - 1.3); ctx.lineTo(muzzle.x + facing * 4, muzzle.y);
-        ctx.lineTo(muzzle.x, muzzle.y + 1.3); ctx.closePath(); ctx.fill();
+        if (aimUp) {
+          ctx.moveTo(muzzle.x - 1.3, muzzle.y); ctx.lineTo(muzzle.x, muzzle.y - 4); ctx.lineTo(muzzle.x + 1.3, muzzle.y);
+        } else {
+          ctx.moveTo(muzzle.x, muzzle.y - 1.3); ctx.lineTo(muzzle.x + facing * 4, muzzle.y); ctx.lineTo(muzzle.x, muzzle.y + 1.3);
+        }
+        ctx.closePath(); ctx.fill();
       }
     };
 
@@ -643,9 +650,9 @@ export default function Home() {
       enemiesRef.current.forEach((enemy) => { if (enemy.alive) drawEnemy(enemy, camera, timeRef.current); });
       bulletsRef.current.forEach((bullet) => {
         glow(bullet.x - camera, bullet.y, 8, '#ffbb5a90');
-        ctx.save(); ctx.strokeStyle = '#ffad56aa'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(bullet.x - camera, bullet.y + 1); ctx.lineTo(bullet.x - camera - bullet.direction * 9, bullet.y + 1); ctx.stroke(); ctx.restore();
+        ctx.save(); ctx.strokeStyle = '#ffad56aa'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(bullet.x - camera + (bullet.up ? 1 : 2), bullet.y + (bullet.up ? 2 : 1)); ctx.lineTo(bullet.x - camera + (bullet.up ? 1 : 2 - bullet.direction * 9), bullet.y + (bullet.up ? 11 : 1)); ctx.stroke(); ctx.restore();
         ctx.fillStyle = '#ffecc0';
-        ctx.fillRect(bullet.x - camera, bullet.y, 4, 2);
+        ctx.fillRect(bullet.x - camera, bullet.y, bullet.up ? 2 : 4, bullet.up ? 4 : 2);
       });
       powerupsRef.current.forEach(item => {
         if (item.taken) return;
@@ -755,13 +762,14 @@ export default function Home() {
         if (player.vy !== 0) duckRef.current = false;
         const body = playerBounds(player.x, player.y, duckRef.current);
         if (pressed.has('shoot') && shotCooldownRef.current <= 0) {
-          const muzzle = heroMuzzle(player.x, player.y, player.facing, heroPose(player.vx, player.vy, duckRef.current, timeRef.current));
-          bulletsRef.current.push({ x: muzzle.x - 2, y: muzzle.y - 1, direction: player.facing });
+          const up = pressed.has('aimUp');
+          const muzzle = heroMuzzle(player.x, player.y, player.facing, heroPose(player.vx, player.vy, duckRef.current, timeRef.current), up);
+          bulletsRef.current.push({ x: muzzle.x - (up ? 1 : 2), y: muzzle.y - (up ? 2 : 1), direction: player.facing, up });
           sound('shoot');
           shotCooldownRef.current = powersRef.current.rapid > 0 ? 5 : 14;
         }
         shotCooldownRef.current -= 1;
-        bulletsRef.current = bulletsRef.current.map((bullet) => ({ ...bullet, x: bullet.x + bullet.direction * 4.5 })).filter((bullet) => bullet.x > 0 && bullet.x < level.width);
+        bulletsRef.current = bulletsRef.current.map((bullet) => ({ ...bullet, x: bullet.x + (bullet.up ? 0 : bullet.direction * 4.5), y: bullet.y - (bullet.up ? 4.5 : 0) })).filter((bullet) => bullet.x > 0 && bullet.x < level.width && bullet.y > -8);
         for (const enemy of enemiesRef.current) {
           if (!enemy.alive) continue;
           if (enemy.kind === 'dragon') {
@@ -795,7 +803,7 @@ export default function Home() {
           }
           const target = enemyBounds(enemy, timeRef.current);
           for (const bullet of bulletsRef.current) {
-            if (overlap(bullet.x, bullet.y, 4, 2, target.x, target.y, target.w, target.h)) {
+            if (overlap(bullet.x, bullet.y, bullet.up ? 2 : 4, bullet.up ? 4 : 2, target.x, target.y, target.w, target.h)) {
               if (!enemy.alive) break;
               sound('hit');
               burst(enemy.x + 6, enemy.y + 6, '#ffb45b');
@@ -906,6 +914,7 @@ export default function Home() {
           <span><kbd>↑</kbd> or <kbd>W</kbd> jump</span>
           <span><kbd>↓</kbd> / <kbd>S</kbd> hold to duck</span>
           <span><kbd>Space</kbd> / <kbd>X</kbd> fire</span>
+          <span><kbd>E</kbd> hold to aim up</span>
           <span><kbd>R</kbd> restart</span>
         </div>
         <div className="touch-controls" aria-label="Touch controls">
@@ -916,6 +925,7 @@ export default function Home() {
           <div className="touch-group">
             <Button variant="outline" aria-label="Duck" {...controlProps('duck')}>Duck</Button>
             <Button variant="outline" aria-label="Jump" {...controlProps('jump')}>Jump</Button>
+            <Button variant="outline" aria-label="Aim upward" {...controlProps('aimUp')}>Aim ↑</Button>
             <Button variant="outline" aria-label="Fire blaster" {...controlProps('shoot')}>Fire</Button>
           </div>
         </div>
