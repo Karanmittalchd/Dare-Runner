@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react';
 import { Crosshair, Gem, Heart, RotateCcw, Zap } from 'lucide-react';
+import { loadSprites, loadAnimationSprites, drawSprite, atmosphere } from './hd-renderer';
 import { useGameAudio } from './use-game-audio';
 import { playerBounds } from './player-geometry';
+import { heroPose, heroMuzzle, heroAnchors, HERO_CELL_SIZE } from './hero-geometry';
 import { Button } from '@/components/ui/button';
 
 const VIEW_WIDTH = 320;
@@ -20,10 +22,13 @@ type Enemy = {
   direction: number;
   alive: boolean;
   flying?: boolean;
-  kind?: 'armored' | 'sentry' | 'hunter';
+  kind?: 'armored' | 'sentry' | 'hunter' | 'dragon';
+  moving?: boolean;
+  animation?: number;
   hp?: number;
   cooldown?: number;
 };
+type DragonFire = { x: number; y: number; vx: number; vy: number; life: number };
 type Bullet = { x: number; y: number; direction: number };
 type ModelContextDocument = Document & {
   modelContext?: {
@@ -124,7 +129,17 @@ const levels: Level[] = [
   },
 ];
 const initialCores = (level = 0): Core[] => levels[level].cores.map(core => ({ ...core }));
-const initialEnemies = (level = 0): Enemy[] => levels[level].enemies.map(enemy => ({ ...enemy }));
+const initialEnemies = (level = 0): Enemy[] => [
+  ...levels[level].enemies.map(enemy => ({ ...enemy, ...(enemy.flying ? { kind: 'dragon' as const, hp: level + 3, cooldown: 135 } : {}) })),
+  { x: 385, y: 98, min: 345, max: 465, direction: -1, flying: true, kind: 'dragon', hp: level + 3, cooldown: 150, alive: true },
+];
+function enemyBounds(enemy: Enemy, frame: number) {
+  const y = enemy.y + (enemy.flying ? Math.sin(frame / 12) * 3 : 0);
+  const w = enemy.kind === 'dragon' ? 28 : enemy.kind === 'sentry' ? 12 : enemy.flying ? 16 : 20;
+  const h = enemy.kind === 'sentry' ? 12 : 22;
+  return { x: enemy.x + 6 - w / 2, y: y + 13 - h, w, h };
+}
+const locations = [{ name: 'Volcano', description: 'Fire caverns, lava climbs and the Obsidian Stronghold.', levels: [0, 1, 2] }];
 
 const overlap = (
   ax: number,
@@ -166,6 +181,7 @@ function pixelText(
 
 export default function Home() {
   const { sound, unlockAudio, muted, toggleMuted } = useGameAudio();
+  const dragonFireRef = useRef<DragonFire[]>([]);
   const powerupsRef = useRef<Powerup[]>([]);
   const enemyShotsRef = useRef<Bullet[]>([]);
   const powersRef = useRef({ shield: false, rapid: 0, grace: 0 });
@@ -194,6 +210,7 @@ export default function Home() {
   const loadLevel = useCallback((index: number, carryScore = false) => {
     powerupsRef.current = (levels[index].powerups ?? []).map(item => ({ ...item }));
     enemyShotsRef.current = [];
+    dragonFireRef.current = [];
     powersRef.current = { shield: false, rapid: 0, grace: 0 };
     setPowerHud({ shield: false, rapid: 0 });
     levelRef.current = index;
@@ -232,6 +249,7 @@ export default function Home() {
     powersRef.current = { shield: false, rapid: 0, grace: 0 };
     setPowerHud({ shield: false, rapid: 0 });
     enemyShotsRef.current = [];
+    dragonFireRef.current = [];
     powerupsRef.current = (levels[levelRef.current].powerups ?? []).map(item => ({ ...item }));
     respawnFramesRef.current = 45;
     cameraRef.current = 0;
@@ -359,6 +377,10 @@ export default function Home() {
     ctx.setTransform(4, 0, 0, 4, 0, 0);
     const cavern = new Image();
     cavern.src = '/cinder-cavern.webp';
+    const stronghold = new Image(); stronghold.src = '/obsidian-hd.png';
+    const sprites = loadSprites('/runner-atlas.png');
+    const volcanoSprites = loadAnimationSprites('/volcano-enemies.png');
+    const heroSprites = loadAnimationSprites('/hero-hd.png', { trim: false, rowSplit: 425 / 887, chromaKey: false });
     const particles: { x: number; y: number; vx: number; vy: number; life: number; color: string }[] = [];
     const burst = (x: number, y: number, color: string) => {
       for (let i = 0; i < 18; i++) particles.push({ x, y, vx: Math.cos(i * 2.4) * (0.3 + i % 4 * 0.3), vy: Math.sin(i * 2.4) * 1.4, life: 30, color });
@@ -375,14 +397,16 @@ export default function Home() {
       ctx.fillRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
       if (cavern.complete && cavern.naturalWidth) {
         ctx.save();
-        if (levelRef.current > 0) ctx.filter = levelRef.current === 1 ? 'hue-rotate(325deg) saturate(1.25)' : 'hue-rotate(45deg) saturate(1.4)';
-        ctx.drawImage(cavern, -camera * 0.025, -12, VIEW_WIDTH + 44, VIEW_HEIGHT + 24);
+        if (levelRef.current === 1) ctx.filter = 'hue-rotate(325deg) saturate(1.15)';
+        const background = levelRef.current === 2 && stronghold.complete && stronghold.naturalWidth ? stronghold : cavern;
+        ctx.drawImage(background, -camera * 0.025, -12, VIEW_WIDTH + 44, VIEW_HEIGHT + 24);
         ctx.restore();
       }
       const haze = ctx.createLinearGradient(0, 0, 0, VIEW_HEIGHT);
       haze.addColorStop(0, '#030b1840'); haze.addColorStop(0.72, '#06122010'); haze.addColorStop(1, '#ff501b40');
       ctx.fillStyle = haze; ctx.fillRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
-      glow(160, 190, 130, '#f55e2025');
+      atmosphere(ctx, timeRef.current, levelRef.current);
+      glow(160, 190, 130, '#f55e2038');
       for (let i = 0; i < 35; i++) {
         const x = ((i * 53.7 - camera * 0.3 + Math.sin(timeRef.current / 90 + i) * 6) % 340 + 340) % 340;
         const y = 192 - ((i * 19 + timeRef.current * (0.08 + i % 3 * 0.03)) % 192);
@@ -395,6 +419,13 @@ export default function Home() {
       ctx.beginPath(); ctx.moveTo(0, 192);
       for (let x = 0; x <= 320; x += 2) ctx.lineTo(x, 185 + Math.sin(x / 12 + timeRef.current / 30) * 1.2);
       ctx.lineTo(320, 192); ctx.fill();
+      ctx.save(); ctx.strokeStyle = '#ffeb9b'; ctx.lineWidth = 0.35;
+      for (let i = 0; i < 23; i++) {
+        const x = (i * 19 + timeRef.current * 0.12) % 330;
+        const y = 187 + Math.sin(i * 2.8 + timeRef.current / 60) * 2;
+        ctx.globalAlpha = 0.25 + Math.sin(i + timeRef.current / 45) * 0.2;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + 3, y - 0.6, x + 7, y); ctx.stroke();
+      } ctx.restore();
     };
 
     const drawPlatform = (platform: Platform, camera: number) => {
@@ -410,18 +441,26 @@ export default function Home() {
         ctx.beginPath(); ctx.moveTo(x + j, platform.y + 2); ctx.lineTo(x + j + 3, platform.y + 6); ctx.lineTo(x + j + 1, platform.y + platform.h); ctx.stroke();
         ctx.fillStyle = '#82948450'; ctx.fillRect(x + j + 2, platform.y + 2, 4, 0.5);
       }
-      for (let j = 2; j < platform.w - 2; j += 4) {
+      for (let j = 2; j < platform.w - 2; j += 2) {
         const depth = 3 + ((j * 13 + platform.x) % Math.max(4, platform.h - 4));
         ctx.fillStyle = j % 3 ? '#859ba329' : '#02070b60';
         ctx.fillRect(x + j, platform.y + depth, 1.5, 0.6);
       }
+      ctx.fillStyle = '#070e18'; ctx.fillRect(x, platform.y + platform.h - 2, platform.w, 2);
       ctx.fillStyle = '#101b25'; ctx.fillRect(x, platform.y + 1, platform.w, 1);
       ctx.fillStyle = '#79d8cd';
       for (let j = 8; j < platform.w - 5; j += 30) ctx.fillRect(x + j, platform.y + 1.15, 4, 0.4);
       ctx.fillStyle = '#ff824640'; ctx.fillRect(x, platform.y + platform.h - 1, platform.w, 1);
     };
 
-    const drawHero = (x: number, y: number, facing: number, frame: number) => {
+    const drawLegacyHero = (x: number, y: number, facing: number, frame: number) => {
+      const moving = Math.abs(playerRef.current.vx) > 0.2;
+      const airborne = Math.abs(playerRef.current.vy) > 0.1;
+      const pose = airborne ? 2 : moving && Math.floor(frame / 7) % 2 ? 1 : 0;
+      if (drawSprite(ctx, sprites, pose, x + 6, y + 14, 17.5, facing)) {
+        glow(x + (facing > 0 ? 8 : 4), y + 2, 6, '#77ffe32a');
+        return;
+      }
       const bob = Math.abs(playerRef.current.vx) > 0.2 ? Math.sin(frame * 0.55) * 0.4 : Math.sin(frame / 20) * 0.15;
       glow(x + 7, y + 4, 11, '#46ffe21b');
       ctx.save(); ctx.shadowColor = '#000b'; ctx.shadowBlur = 4;
@@ -462,10 +501,50 @@ export default function Home() {
       ctx.restore();
     };
 
+    const drawHero = (x: number, y: number, facing: number, frame: number) => {
+      const player = playerRef.current;
+      const pose = heroPose(player.vx, player.vy, duckRef.current, frame);
+      const sprite = heroSprites.frames[pose];
+      if (sprite) {
+        const anchor = heroAnchors[pose];
+        ctx.save(); ctx.translate(x + 6, y + 14); ctx.scale(facing, 1);
+        ctx.drawImage(sprite, -anchor.bodyX * HERO_CELL_SIZE, -anchor.feetY * HERO_CELL_SIZE, HERO_CELL_SIZE, HERO_CELL_SIZE * sprite.height / sprite.width);
+        ctx.restore();
+      } else {
+        ctx.save();
+        if (duckRef.current) { ctx.translate(0, (y + 14) * (1 - 8 / 14)); ctx.scale(1, 8 / 14); }
+        drawLegacyHero(x, y, facing, frame); ctx.restore();
+      }
+      if (shotCooldownRef.current > (powersRef.current.rapid > 0 ? 3 : 11)) {
+        const muzzle = heroMuzzle(x, y, facing, pose);
+        glow(muzzle.x, muzzle.y, 5, '#ffdd7788');
+        ctx.fillStyle = '#fff3b0'; ctx.beginPath();
+        ctx.moveTo(muzzle.x, muzzle.y - 1.3); ctx.lineTo(muzzle.x + facing * 4, muzzle.y);
+        ctx.lineTo(muzzle.x, muzzle.y + 1.3); ctx.closePath(); ctx.fill();
+      }
+    };
+
     const drawEnemy = (enemy: Enemy, camera: number, frame: number) => {
       const x = Math.floor(enemy.x - camera);
       const y = Math.floor(enemy.y + (enemy.flying ? Math.sin(frame / 12) * 3 : 0));
-      if (x < -20 || x > VIEW_WIDTH + 20) return;
+      if (x < -40 || x > VIEW_WIDTH + 40) return;
+      const bounds = enemyBounds(enemy, frame);
+      const dragon = enemy.kind === 'dragon';
+      if (dragon || (!enemy.flying && enemy.kind !== 'sentry')) {
+        const pose = dragon ? Math.floor(frame / 9) % 4 : enemy.moving ? Math.floor((enemy.animation ?? 0) / 6) % 4 : 0;
+        if (drawSprite(ctx, volcanoSprites, (dragon ? 4 : 0) + pose, x + 6, y + 13, dragon ? 30 : 24, enemy.direction, -1)) {
+          for (let i = 0; i < (enemy.hp ?? 1); i++) { ctx.fillStyle = dragon ? '#ffb15c' : '#ff8773'; ctx.fillRect(x - 3 + i * 3, bounds.y - 4, 2, 1); }
+          if (dragon && (enemy.cooldown ?? 135) < 30) { glow(x + 6 + enemy.direction * 12, y + 3, 14, '#ff641999'); pixelText(ctx, '!', x + 6, bounds.y - 6, '#ffdf83', 'center'); }
+          return;
+        }
+      }
+      const spriteIndex = enemy.flying ? 4 : enemy.kind === 'sentry' ? 5 : 3;
+      const spriteHeight = enemy.kind === 'dragon' ? 30 : enemy.flying ? 20 : enemy.kind === 'sentry' ? 15 : 24;
+      if (drawSprite(ctx, sprites, spriteIndex, x + 6, y + 13, spriteHeight, enemy.direction, -1)) {
+        if (enemy.kind) for (let i = 0; i < (enemy.hp ?? 1); i++) { ctx.fillStyle = '#ffab83'; ctx.fillRect(x + i * 3, y - 5, 2, 0.8); }
+        if (enemy.kind === 'sentry' && (enemy.cooldown ?? 110) < 25) glow(x + 6, y + 4, 9, '#ff844f88');
+        return;
+      }
       ctx.save();
       ctx.shadowColor = '#040810'; ctx.shadowBlur = 4;
       const shell = ctx.createLinearGradient(x, y, x + 12, y + 12);
@@ -561,8 +640,9 @@ export default function Home() {
       enemiesRef.current.forEach((enemy) => { if (enemy.alive) drawEnemy(enemy, camera, timeRef.current); });
       bulletsRef.current.forEach((bullet) => {
         glow(bullet.x - camera, bullet.y, 8, '#ffbb5a90');
+        ctx.save(); ctx.strokeStyle = '#ffad56aa'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(bullet.x - camera, bullet.y + 1); ctx.lineTo(bullet.x - camera - bullet.direction * 9, bullet.y + 1); ctx.stroke(); ctx.restore();
         ctx.fillStyle = '#ffecc0';
-        ctx.fillRect(Math.floor(bullet.x - camera), Math.floor(bullet.y), 4, 2);
+        ctx.fillRect(bullet.x - camera, bullet.y, 4, 2);
       });
       powerupsRef.current.forEach(item => {
         if (item.taken) return;
@@ -573,13 +653,20 @@ export default function Home() {
         ctx.strokeStyle = color; ctx.lineWidth = 0.7; ctx.strokeRect(x, item.y, 10, 10);
         pixelText(ctx, item.kind === 'shield' ? 'S' : item.kind === 'rapid' ? 'R' : '+', x + 5, item.y + 8, color, 'center');
       });
+      dragonFireRef.current.forEach(fire => {
+        const x = fire.x - camera;
+        glow(x + 3, fire.y + 3, 11, '#ff741966');
+        ctx.fillStyle = '#ff511c'; ctx.beginPath(); ctx.ellipse(x + 3, fire.y + 3, 4, 3, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fff2a2'; ctx.beginPath(); ctx.arc(x + 3, fire.y + 3, 1.6, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#ff9b4b'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + 3, fire.y + 3); ctx.lineTo(x + 3 - fire.vx * 4, fire.y + 3 - fire.vy * 4); ctx.stroke();
+      });
       enemyShotsRef.current.forEach(shot => { glow(shot.x - camera, shot.y, 6, '#ff4b4466'); ctx.fillStyle = '#ff6960'; ctx.fillRect(shot.x - camera, shot.y, 4, 2); });
       if (powersRef.current.shield || powersRef.current.grace > 0) {
         ctx.strokeStyle = '#8cdaff'; ctx.lineWidth = 0.6; ctx.beginPath(); ctx.ellipse(player.x - camera + 6, player.y + 7, 9, 11, 0, 0, Math.PI * 2); ctx.stroke();
       }
       particles.forEach((particle) => {
         ctx.globalAlpha = particle.life / 30; ctx.fillStyle = particle.color;
-        ctx.fillRect(particle.x - camera, particle.y, 0.7, 0.7);
+        ctx.strokeStyle = particle.color; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(particle.x - camera, particle.y); ctx.lineTo(particle.x - camera - particle.vx * 2.5, particle.y - particle.vy * 2.5); ctx.stroke();
       }); ctx.globalAlpha = 1;
       const gateX = level.gateX - camera;
       const gateOpen = coresRef.current.every(core => core.taken);
@@ -610,8 +697,7 @@ export default function Home() {
       ctx.restore();
       pixelText(ctx, gateOpen ? 'PORTAL READY' : '3 CORES REQUIRED', gateX + 10, 132, gateOpen ? '#b6ffe9' : '#ffd09e', 'center');
       ctx.save();
-      if (duckRef.current) { ctx.translate(0, (player.y + 14) * (1 - 8 / 14)); ctx.scale(1, 8 / 14); }
-      drawHero(Math.floor(player.x - camera), Math.floor(player.y), player.facing, timeRef.current);
+      drawHero(player.x - camera, player.y, player.facing, timeRef.current);
       ctx.restore();
       if (gameWonRef.current) {
         ctx.fillStyle = 'rgba(4, 11, 30, 0.78)';
@@ -666,7 +752,8 @@ export default function Home() {
         if (player.vy !== 0) duckRef.current = false;
         const body = playerBounds(player.x, player.y, duckRef.current);
         if (pressed.has('shoot') && shotCooldownRef.current <= 0) {
-          bulletsRef.current.push({ x: player.x + (player.facing > 0 ? 11 : -2), y: body.y + body.h / 2, direction: player.facing });
+          const muzzle = heroMuzzle(player.x, player.y, player.facing, heroPose(player.vx, player.vy, duckRef.current, timeRef.current));
+          bulletsRef.current.push({ x: muzzle.x - 2, y: muzzle.y - 1, direction: player.facing });
           sound('shoot');
           shotCooldownRef.current = powersRef.current.rapid > 0 ? 5 : 14;
         }
@@ -674,19 +761,38 @@ export default function Home() {
         bulletsRef.current = bulletsRef.current.map((bullet) => ({ ...bullet, x: bullet.x + bullet.direction * 4.5 })).filter((bullet) => bullet.x > 0 && bullet.x < level.width);
         for (const enemy of enemiesRef.current) {
           if (!enemy.alive) continue;
-          if (enemy.kind === 'sentry') {
+          if (enemy.kind === 'dragon') {
+            const distance = player.x - enemy.x;
+            enemy.direction = distance < 0 ? -1 : 1;
+            if (Math.abs(distance) < 220) {
+              enemy.x = Math.max(enemy.min, Math.min(enemy.max, enemy.x + enemy.direction * 0.38));
+              enemy.cooldown = (enemy.cooldown ?? 135) - 1;
+              if (enemy.cooldown <= 0) {
+                const x = enemy.x + 6 + enemy.direction * 12, y = enemy.y + 3;
+                const angle = Math.atan2(player.y + 7 - y, player.x + 6 - x);
+                for (const spread of [-0.13, 0, 0.13]) dragonFireRef.current.push({ x, y, vx: Math.cos(angle + spread) * 1.8, vy: Math.sin(angle + spread) * 1.8, life: 125 });
+                enemy.cooldown = Math.max(115, 165 - levelRef.current * 15);
+                sound('shoot');
+              }
+            }
+          } else if (enemy.kind === 'sentry') {
             enemy.direction = player.x < enemy.x ? -1 : 1;
             if (Math.abs(player.x - enemy.x) < 180) {
               enemy.cooldown = (enemy.cooldown ?? 110) - 1;
               if (enemy.cooldown <= 0) { enemyShotsRef.current.push({ x: enemy.x + (enemy.direction < 0 ? -4 : 13), y: enemy.y + 3, direction: enemy.direction }); enemy.cooldown = 110; }
             }
           } else {
-            enemy.x += enemy.direction * (enemy.kind === 'hunter' ? 0.8 : enemy.kind === 'armored' ? 0.5 : enemy.flying ? 0.48 : 0.34);
-            if (enemy.x <= enemy.min || enemy.x >= enemy.max) enemy.direction *= -1;
+            const chase = !enemy.flying && Math.abs(player.x - enemy.x) < 150 && Math.abs(player.y - enemy.y) < 48;
+            if (chase) enemy.direction = player.x < enemy.x ? -1 : 1;
+            const before = enemy.x;
+            enemy.x = Math.max(enemy.min, Math.min(enemy.max, enemy.x + enemy.direction * (chase ? (enemy.kind === 'armored' ? 0.95 : 1.1) : 0.55)));
+            enemy.moving = Math.abs(enemy.x - before) > 0.01;
+            if (enemy.moving) enemy.animation = (enemy.animation ?? 0) + 1;
+            if (!chase && (enemy.x <= enemy.min || enemy.x >= enemy.max)) enemy.direction *= -1;
           }
+          const target = enemyBounds(enemy, timeRef.current);
           for (const bullet of bulletsRef.current) {
-            const enemyY = enemy.y + (enemy.flying ? Math.sin(timeRef.current / 12) * 3 : 0);
-            if (overlap(bullet.x, bullet.y, 4, 2, enemy.x, enemyY, 12, 12)) {
+            if (overlap(bullet.x, bullet.y, 4, 2, target.x, target.y, target.w, target.h)) {
               if (!enemy.alive) break;
               sound('hit');
               burst(enemy.x + 6, enemy.y + 6, '#ffb45b');
@@ -697,7 +803,11 @@ export default function Home() {
               setHud((current) => ({ ...current, score: scoreRef.current }));
             }
           }
-          if (enemy.alive && overlap(body.x, body.y, body.w, body.h, enemy.x, enemy.y + (enemy.flying ? Math.sin(timeRef.current / 12) * 3 : 0), 12, 12)) { loseLife('Hit by a creature'); return; }
+          if (enemy.alive && overlap(body.x, body.y, body.w, body.h, target.x, target.y, target.w, target.h)) { loseLife('Hit by a creature'); return; }
+        }
+        dragonFireRef.current = dragonFireRef.current.map(fire => ({ ...fire, x: fire.x + fire.vx, y: fire.y + fire.vy, life: fire.life - 1 })).filter(fire => fire.life > 0 && fire.x > 0 && fire.x < level.width && fire.y < 192 && !platforms.some(platform => overlap(fire.x, fire.y, 6, 6, platform.x, platform.y, platform.w, platform.h)));
+        for (const fire of dragonFireRef.current) {
+          if (overlap(body.x, body.y, body.w, body.h, fire.x, fire.y, 6, 6)) { fire.life = 0; sound('burn'); loseLife('Burned by dragon fire'); return; }
         }
         enemyShotsRef.current = enemyShotsRef.current.map(shot => ({ ...shot, x: shot.x + shot.direction * 2.3 })).filter(shot => shot.x > 0 && shot.x < level.width && !platforms.some(platform => overlap(shot.x, shot.y, 4, 2, platform.x, platform.y, platform.w, platform.h)));
         for (const shot of enemyShotsRef.current) {
@@ -765,7 +875,7 @@ export default function Home() {
       <section className="game-shell" aria-labelledby="game-title">
         <header className="game-header">
           <div>
-            <p className="eyebrow">SECTOR 0{levelIndex + 1} / {levels[levelIndex].name.toUpperCase()}</p>
+            <p className="eyebrow">VOLCANO · STAGE 0{levelIndex + 1} / {levels[levelIndex].name.toUpperCase()}</p>
             <h1 id="game-title">Dare Runner</h1>
           </div>
           <div className="status-panel" aria-live="polite">
@@ -774,10 +884,11 @@ export default function Home() {
             <span><Crosshair size={16} /> <small>SCORE</small><b>{hud.score.toString().padStart(5, '0')}</b></span>
           </div>
         </header>
+        <section className="location-panel" aria-label="Locations"><div><span className="eyebrow">LOCATION 01</span><h2>{locations[0].name}</h2><p>{locations[0].description}</p></div><span className="location-badge">3 stages · Fire dragons</span></section>
         <nav className="level-selector" aria-label="Choose a level">
           {levels.map((level, index) => <Button key={level.name} className="restart-button" aria-pressed={levelIndex === index} onClick={() => loadLevel(index)}>0{index + 1} · {level.name}</Button>)}
         </nav>
-        {levelIndex === 2 && <div className="powerup-hud" aria-live="polite"><span>🛡 S · {powerHud.shield ? 'Shield ready' : 'Collect a shield'}</span><span>⚡ R · {powerHud.rapid > 0 ? `Overdrive ${powerHud.rapid}s` : '10s rapid fire + double damage'}</span><span>+ · Repair one life</span></div>}
+        {levelIndex === 2 && <div className="powerup-hud" aria-live="polite"><span>🛡 Shield pickup · {powerHud.shield ? 'Shield ready' : 'Collect a shield'}</span><span>⚡ Overdrive pickup · {powerHud.rapid > 0 ? `Overdrive ${powerHud.rapid}s` : '10s rapid fire + double damage'}</span><span>+ · Repair one life</span></div>}
         <div className="screen-topline"><span><i /> EXPEDITION ACTIVE</span><span>{levels[levelIndex].name.toUpperCase()} <b>0{levelIndex + 1}</b></span></div>
         <div className="screen-frame">
           <canvas ref={canvasRef} width={VIEW_WIDTH * 4} height={VIEW_HEIGHT * 4} aria-label={`Playable Dare Runner level ${levelIndex + 1}: ${levels[levelIndex].name}. Collect three power cores, shoot monsters, and reach the exit.`} />

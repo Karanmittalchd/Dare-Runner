@@ -106,3 +106,23 @@ button:focus-visible { outline:2px solid #8af2d8; outline-offset:4px; }
 .game-actions { flex-wrap:wrap; }
 
 .powerup-hud { display:flex; flex-wrap:wrap; gap:0.5rem 1.2rem; margin-bottom:1rem; color:#c1d9ef; font-size:0.875rem; }
+
+/* The game remains the main surface; frame and HUD share the cavern palette. */
+body { background:radial-gradient(ellipse at 48% 0%,#153242 0%,#080e17 55%,#050a10 100%); }
+.game-page { padding:clamp(0.7rem,2vw,1.8rem); }
+.game-shell { width:min(100%,90rem); }
+.game-header { margin-bottom:1.3rem; }
+h1 { font-style:italic; letter-spacing:-0.07em; background:linear-gradient(180deg,#fcfff8,#91b6bd); color:transparent; background-clip:text; }
+.status-panel { background:#0b1821b0; border:1px solid #2d4755; border-radius:0.6rem; padding:0.9rem 1.2rem; }
+.level-selector { gap:0; padding:0.3rem; width:fit-content; background:#08121c; border:1px solid #283d4c; border-radius:0.6rem; }
+.level-selector .restart-button { border-color:transparent; background:transparent; }
+.level-selector [aria-pressed="true"] { background:linear-gradient(135deg,#225148,#17313e); border-color:#497972; box-shadow:inset 0 1px #8de7d333; }
+.screen-frame { box-shadow:0 0 0 5px #0a1721,0 0 70px #3cbed00c,0 30px 80px #0009; }
+.screen-topline { background:linear-gradient(90deg,#132630,#0b1723); border-color:#385561; }
+@media (max-width:760px) { .status-panel { padding:0.8rem; } .level-selector { width:100%; } .level-selector .restart-button { flex:1; white-space:normal; height:auto; line-height:1.3; } }
+
+.location-panel { display:flex; align-items:center; justify-content:space-between; gap:1rem; margin:0 0 1rem; padding:1rem 1.2rem; background:linear-gradient(110deg,#341d18,#101c29); border:1px solid #674332; border-radius:0.6rem; }
+.location-panel h2 { margin:0.15rem 0; font-size:1.5rem; color:#ffbe85; }
+.location-panel p { margin:0.3rem 0 0; color:#bcc6cf; font-size:0.875rem; }
+.location-badge { color:#ffc59a; font-size:0.875rem; white-space:nowrap; }
+@media(max-width:640px){.location-panel {align-items:start; flex-direction:column;}}
