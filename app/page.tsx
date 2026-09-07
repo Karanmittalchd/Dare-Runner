@@ -447,14 +447,15 @@ export default function Home() {
     const frozen = new Image(); frozen.src = '/frozen-citadel.png';
     const ice = new Image(); ice.src = '/icy-platform.png';
     const frozenSprites = loadAnimationSprites('/frozen-enemies.png');
+    const iceHazardSprites = loadAnimationSprites('/ice-hazards.png', { rows: 1, individual: true, columnBreaks: [0, 495 / 1717, 972 / 1717, 1300 / 1717, 1] });
     const pickupSprites = loadAnimationSprites('/powerup-atlas.png', { rows: 1, individual: true, columnBreaks: [0, 0.25, 0.5, 1460 / 1983, 1] });
     const sprites = loadSprites('/runner-atlas.png');
     const volcanoSprites = loadAnimationSprites('/volcano-enemies.png');
     const heroUpSprites = loadAnimationSprites('/hero-up.png', { trim: false, rowSplit: 410 / 887, chromaKey: false, lightBackdrop: true });
     const heroSprites = loadAnimationSprites('/hero-hd.png', { trim: false, rowSplit: 425 / 887, chromaKey: false });
-    const particles: { x: number; y: number; vx: number; vy: number; life: number; color: string }[] = [];
-    const burst = (x: number, y: number, color: string) => {
-      for (let i = 0; i < 18; i++) particles.push({ x, y, vx: Math.cos(i * 2.4) * (0.3 + i % 4 * 0.3), vy: Math.sin(i * 2.4) * 1.4, life: 30, color });
+    const particles: { x: number; y: number; vx: number; vy: number; life: number; color: string; ice?: boolean }[] = [];
+    const burst = (x: number, y: number, color: string, ice = false) => {
+      for (let i = 0; i < 18; i++) particles.push({ x, y, vx: Math.cos(i * 2.4) * (0.3 + i % 4 * 0.3), vy: Math.sin(i * 2.4) * 1.4, life: 30, color, ice });
     };
     const glow = (x: number, y: number, radius: number, color: string) => {
       const light = ctx.createRadialGradient(x, y, 0, x, y, radius);
@@ -704,10 +705,23 @@ export default function Home() {
         const x = spike.x - camera;
         if (x > VIEW_WIDTH || x + spike.w < 0) return;
         if (level.icy) {
-          for (let j = 0; j < spike.w; j += 5) {
-            ctx.fillStyle = '#87d5ff'; ctx.beginPath(); ctx.moveTo(x + j, spike.y + 8); ctx.lineTo(x + j + 2.5, spike.y); ctx.lineTo(x + j + 5, spike.y + 8); ctx.fill();
-            ctx.strokeStyle = '#effaff'; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(x + j + 2.5, spike.y); ctx.lineTo(x + j + 2.5, spike.y + 7); ctx.stroke();
+          const sprite = iceHazardSprites.frames[Math.floor(spike.x / 30) % 2];
+          glow(x + spike.w / 2, spike.y + 6, 16, '#68caff35');
+          if (sprite) {
+            const count = Math.ceil(spike.w / 9), width = spike.w / count;
+            for (let i = 0; i < count; i++) {
+              const crystal = iceHazardSprites.frames[(i + Math.floor(spike.x / 30)) % 2] ?? sprite;
+              const height = i % 2 ? 8.5 : 10;
+              ctx.drawImage(crystal, x + i * width, spike.y + 8 - height, width + 0.4, height);
+            }
           }
+          else { ctx.fillStyle = '#a8e7ff'; ctx.fillRect(x, spike.y + 5, spike.w, 3); }
+          // Small glints bring out individual crystal tips without hiding the hazard silhouette.
+          const glintX = x + spike.w * (0.25 + (Math.floor(spike.x) % 3) * 0.22);
+          ctx.save(); ctx.globalAlpha = Math.max(0, Math.sin(timeRef.current / 16 + spike.x));
+          ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 0.45; ctx.beginPath();
+          ctx.moveTo(glintX - 1.4, spike.y + 2); ctx.lineTo(glintX + 1.4, spike.y + 2);
+          ctx.moveTo(glintX, spike.y + 0.5); ctx.lineTo(glintX, spike.y + 3.5); ctx.stroke(); ctx.restore();
           return;
         }
         glow(x + spike.w / 2, spike.y + 5, 18, '#ff762955');
@@ -744,8 +758,24 @@ export default function Home() {
       });
       iciclesRef.current.forEach(shard => {
         const x = shard.x - camera;
-        if (shard.warning) { ctx.fillStyle = '#c3eaff22'; ctx.fillRect(x - 2, shard.y, 7, 176 - shard.y); pixelText(ctx, '!', x + 2, shard.y - 4, '#fff3b0', 'center'); }
-        ctx.fillStyle = shard.warning ? '#fff3b0' : '#b6e9ff'; ctx.beginPath(); ctx.moveTo(x, shard.y); ctx.lineTo(x + 6, shard.y); ctx.lineTo(x + 3, shard.y + 12); ctx.closePath(); ctx.fill();
+        if (x < -16 || x > VIEW_WIDTH + 16) return;
+        const shake = shard.warning ? Math.sin(timeRef.current * 0.9) * 0.65 : 0;
+        const sprite = iceHazardSprites.frames[2];
+        const landingY = Math.min(185, ...platforms.filter(p => shard.x + 6 > p.x && shard.x < p.x + p.w && p.y >= shard.y + 12).map(p => p.y));
+        if (shard.warning) {
+          const warning = ctx.createLinearGradient(0, shard.y, 0, landingY);
+          warning.addColorStop(0, '#a8e5ff00'); warning.addColorStop(1, '#c5f1ff44');
+          ctx.fillStyle = warning; ctx.fillRect(x - 1, shard.y, 8, landingY - shard.y);
+          ctx.strokeStyle = '#fff3b0'; ctx.lineWidth = 0.7; ctx.beginPath(); ctx.ellipse(x + 3, landingY - 1, 7, 1.8, 0, 0, Math.PI * 2); ctx.stroke();
+          pixelText(ctx, '!', x + 3, shard.y - 7, '#fff3b0', 'center');
+        }
+        if (shard.falling) {
+          const trail = ctx.createLinearGradient(0, shard.y - 15, 0, shard.y + 5);
+          trail.addColorStop(0, '#9ce8ff00'); trail.addColorStop(1, '#b0eaff77'); ctx.fillStyle = trail; ctx.fillRect(x + 1, shard.y - 15, 4, 20);
+        }
+        glow(x + 3, shard.y + 4, 10, shard.warning ? '#dcfaff66' : '#79cfff22');
+        if (sprite) ctx.drawImage(sprite, x - 1 + shake, shard.y - 4, 8, 16);
+        else { ctx.fillStyle = '#c7efff'; ctx.beginPath(); ctx.moveTo(x, shard.y); ctx.lineTo(x + 6, shard.y); ctx.lineTo(x + 3, shard.y + 12); ctx.fill(); }
       });
       const boss = enemiesRef.current.find(enemy => enemy.kind === 'frost-king' && enemy.alive);
       if (boss && Math.abs(player.x - boss.x) < 300) {
@@ -801,6 +831,10 @@ export default function Home() {
         ctx.strokeStyle = '#8cdaff'; ctx.lineWidth = 0.6; ctx.beginPath(); ctx.ellipse(player.x - camera + 6, player.y + 7, 9, 11, 0, 0, Math.PI * 2); ctx.stroke();
       }
       particles.forEach((particle) => {
+        if (particle.ice && iceHazardSprites.frames[3]) {
+          ctx.save(); ctx.globalAlpha = particle.life / 30; ctx.translate(particle.x - camera, particle.y); ctx.rotate(particle.vx * (30 - particle.life) * 0.12);
+          const size = 2.5 + Math.abs(particle.vx); ctx.drawImage(iceHazardSprites.frames[3], -size / 2, -size / 2, size, size); ctx.restore(); return;
+        }
         ctx.globalAlpha = particle.life / 30; ctx.fillStyle = particle.color;
         ctx.strokeStyle = particle.color; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(particle.x - camera, particle.y); ctx.lineTo(particle.x - camera - particle.vx * 2.5, particle.y - particle.vy * 2.5); ctx.stroke();
       }); ctx.globalAlpha = 1;
@@ -956,7 +990,7 @@ export default function Home() {
         }
         for (const barrier of barriersRef.current) for (const bullet of bulletsRef.current) {
           if (barrier.hp > 0 && overlap(bullet.x, bullet.y, bullet.up ? 2 : 4, bullet.up ? 4 : 2, barrier.x, barrier.y, barrier.w, barrier.h)) {
-            barrier.hp -= bullet.flame ? 3 : 1; bullet.x = -99; sound('hit'); burst(barrier.x + 7, barrier.y + 15, '#b5eaff');
+            barrier.hp -= bullet.flame ? 3 : 1; bullet.x = -99; sound('hit'); burst(barrier.x + 7, barrier.y + 15, '#b5eaff', true);
           }
         }
         for (const shard of iciclesRef.current) {
@@ -966,7 +1000,7 @@ export default function Home() {
           if (shard.falling) {
             shard.y += 3.4;
             if (overlap(body.x, body.y, body.w, body.h, shard.x, shard.y, 6, 12)) { shard.falling = false; shard.y = 24; shard.timer = 150; loseLife('Hit by a falling icicle'); return; }
-            if (shard.y > 185 || platforms.some(p => overlap(shard.x, shard.y, 6, 12, p.x, p.y, p.w, p.h))) { burst(shard.x, shard.y, '#d2f2ff'); shard.falling = false; shard.y = 24; shard.timer = 150; }
+            if (shard.y > 185 || platforms.some(p => overlap(shard.x, shard.y, 6, 12, p.x, p.y, p.w, p.h))) { burst(shard.x + 3, shard.y + 10, '#d2f2ff', true); shard.falling = false; shard.y = 24; shard.timer = 150; }
           }
         }
         dragonFireRef.current = dragonFireRef.current.map(fire => ({ ...fire, x: fire.x + fire.vx, y: fire.y + fire.vy, life: fire.life - 1 })).filter(fire => fire.life > 0 && fire.x > 0 && fire.x < level.width && fire.y < 192 && !platforms.some(platform => overlap(fire.x, fire.y, 6, 6, platform.x, platform.y, platform.w, platform.h)));
